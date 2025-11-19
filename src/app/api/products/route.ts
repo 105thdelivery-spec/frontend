@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, categories, productInventory, productVariants } from '@/lib/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { products, categories, productInventory, productVariants, settings } from '@/lib/schema';
+import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import { normalizeProductImages, normalizeProductTags } from '@/utils/jsonUtils';
+
+// Get stock management setting
+async function getStockManagementSetting() {
+  try {
+    const setting = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, 'stock_management_enabled'))
+      .limit(1);
+    
+    return setting.length > 0 ? setting[0].value === 'true' : false;
+  } catch (error) {
+    console.error('Error fetching stock management setting:', error);
+    return false;
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +26,9 @@ export async function GET(req: NextRequest) {
     const categoryId = searchParams.get('categoryId');
     const categorySlug = searchParams.get('category');
     const limit = parseInt(searchParams.get('limit') || '20');
+
+    // Check if stock management is enabled
+    const stockManagementEnabled = await getStockManagementSetting();
 
     let whereConditions = [eq(products.isActive, true)];
 
@@ -89,6 +108,28 @@ export async function GET(req: NextRequest) {
       )
       .limit(limit);
 
+    // Fetch inventory data for all products if stock management is enabled
+    let inventoryMap: Map<string, number> = new Map();
+    if (stockManagementEnabled) {
+      const productIds = productsWithDetails.map(p => p.product.id);
+      const inventories = await db
+        .select({
+          productId: productInventory.productId,
+          availableQuantity: productInventory.availableQuantity
+        })
+        .from(productInventory)
+        .where(
+          and(
+            sql`${productInventory.productId} IN (${sql.join(productIds.map(id => sql`${id}`), sql`, `)})`,
+            isNull(productInventory.variantId)
+          )
+        );
+      
+      inventories.forEach(inv => {
+        inventoryMap.set(inv.productId, inv.availableQuantity || 0);
+      });
+    }
+
     // Transform the data to match the frontend Product interface
     const transformedProducts = productsWithDetails.map(item => {
       // Parse JSON fields safely
@@ -149,6 +190,11 @@ export async function GET(req: NextRequest) {
         console.log('- Display Price:', displayPrice);
       }
       
+      // Get available quantity for simple products from inventory
+      const availableQuantity = !isVariableProduct && stockManagementEnabled
+        ? inventoryMap.get(item.product.id) || 0
+        : undefined;
+
       return {
         id: item.product.id,
         name: item.product.name,
@@ -171,6 +217,9 @@ export async function GET(req: NextRequest) {
         isFeatured: item.product.isFeatured || false,
         tags: tags,
         createdAt: item.product.createdAt,
+        // Add inventory information for simple products
+        availableQuantity: availableQuantity,
+        stockManagementType: item.product.productType === 'simple' ? 'quantity' : undefined,
       };
     });
 

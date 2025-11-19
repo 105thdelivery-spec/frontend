@@ -76,6 +76,8 @@ export default function ProductDetails() {
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [selectedVariant, setSelectedVariant] = useState<PriceMatrixEntry | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<{ [key: string]: string }>({});
+  const [availableQuantity, setAvailableQuantity] = useState<number | null>(null);
+  const [stockManagementEnabled, setStockManagementEnabled] = useState(false);
   const { addToCartWithToast, state } = useCart();
   const { toast } = useToast();
 
@@ -98,6 +100,11 @@ export default function ProductDetails() {
         if (result.success) {
           setProduct(result.data);
           setImageErrors(new Set()); // Reset image errors for new product
+          
+          // Fetch inventory for simple products
+          if (result.data.productType === 'simple') {
+            fetchInventory(result.data.id, null);
+          }
         } else {
           console.error('Failed to load product:', result.error);
           router.push('/');
@@ -114,6 +121,31 @@ export default function ProductDetails() {
       fetchProduct();
     }
   }, [id, router]);
+
+  // Fetch inventory information
+  const fetchInventory = async (productId: string, variantId: string | null) => {
+    try {
+      const response = await fetch('/api/inventory/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId,
+          variantId,
+          requestedQuantity: 1,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setStockManagementEnabled(result.stockManagementEnabled);
+        setAvailableQuantity(result.availableQuantity);
+      }
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+  };
 
   // Helper functions
   const handleImageError = (imageIndex: number) => {
@@ -507,6 +539,20 @@ export default function ProductDetails() {
           {/* Add to Cart */}
           <Card>
             <CardContent className="pt-6">
+              {/* Show stock availability for simple products */}
+              {product.productType === 'simple' && stockManagementEnabled && availableQuantity !== null && (
+                <div className="mb-4 p-3 rounded-lg bg-muted">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Stock Status:</span>
+                    <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
+                      {availableQuantity > 0 
+                        ? `${availableQuantity} available` 
+                        : 'Out of stock'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">Quantity (grams)</span>
                 <div className="flex items-center gap-3">
@@ -522,7 +568,17 @@ export default function ProductDetails() {
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => setQuantity(quantity + 1)}
+                    onClick={() => {
+                      const maxQty = stockManagementEnabled && availableQuantity !== null 
+                        ? availableQuantity 
+                        : 999;
+                      setQuantity(Math.min(maxQty, quantity + 1));
+                    }}
+                    disabled={
+                      stockManagementEnabled && 
+                      availableQuantity !== null && 
+                      quantity >= availableQuantity
+                    }
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

@@ -17,6 +17,9 @@ export interface Product {
   variantId?: string;
   variantSku?: string;
   selectedAttributes?: { [key: string]: string };
+  // Inventory information
+  availableQuantity?: number;
+  stockManagementType?: string;
 }
 
 export interface CartItem {

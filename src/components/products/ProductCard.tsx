@@ -23,6 +23,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     setQuantity(1);
   };
 
+  // Get max quantity based on available stock
+  const maxQuantity = product.availableQuantity !== undefined && product.availableQuantity > 0 
+    ? product.availableQuantity 
+    : 999;
+
   const getStrainColor = (strain: string) => {
     switch (strain) {
       case 'indica': return 'bg-purple-100 text-purple-800';
@@ -97,52 +102,69 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             </div>
             
             {product.inStock && (
-              <div className="flex items-center gap-2">
-                {/* Hide quantity selector and add to cart for variable products */}
-                {!product.isVariableProduct && (
-                  <>
-                    <div className="flex items-center border rounded-lg">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="px-3 py-1 text-sm font-medium">{quantity}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQuantity(quantity + 1)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      onClick={handleAddToCart}
-                      className="gap-1"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      Add
-                    </Button>
-                  </>
+              <div className="flex flex-col gap-2 w-full">
+                {/* Show available stock if defined */}
+                {product.availableQuantity !== undefined && (
+                  <div className="text-xs text-center">
+                    {product.availableQuantity > 0 ? (
+                      <span className="text-muted-foreground">
+                        {product.availableQuantity} available
+                      </span>
+                    ) : (
+                      <span className="text-destructive font-medium">Out of stock</span>
+                    )}
+                  </div>
                 )}
                 
-                {/* Show "Select Options" button for variable products */}
-                {product.isVariableProduct && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => router.push(`/product/${product.id}`)}
-                    className="gap-1 w-full"
-                  >
-                    Select Options
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Hide quantity selector and add to cart for variable products */}
+                  {!product.isVariableProduct && (
+                    <>
+                      <div className="flex items-center border rounded-lg">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="px-3 py-1 text-sm font-medium">{quantity}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                          disabled={quantity >= maxQuantity}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <Button 
+                        size="sm" 
+                        onClick={handleAddToCart}
+                        className="gap-1"
+                        disabled={product.availableQuantity === 0}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        Add
+                      </Button>
+                    </>
+                  )}
+                
+                  {/* Show "Select Options" button for variable products */}
+                  {product.isVariableProduct && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => router.push(`/product/${product.id}`)}
+                      className="gap-1 w-full"
+                    >
+                      Select Options
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>
