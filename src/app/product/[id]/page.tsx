@@ -167,7 +167,12 @@ export default function ProductDetails() {
   const handleVariantChange = useCallback((variant: PriceMatrixEntry | null, attributes: { [key: string]: string }) => {
     setSelectedVariant(variant);
     setSelectedAttributes(attributes);
-  }, []);
+    
+    // Fetch inventory for the selected variant
+    if (variant && product) {
+      fetchInventory(product.id, variant.variantId);
+    }
+  }, [product]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -572,15 +577,38 @@ export default function ProductDetails() {
                     <span className="text-sm font-medium">Stock Status:</span>
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
                       {availableQuantity > 0 
-                        ? `${availableQuantity} available` 
+                        ? product.stockManagementType === 'weight'
+                          ? `${availableQuantity.toFixed(0)}g available`
+                          : `${availableQuantity} available`
                         : 'Out of stock'}
                     </Badge>
                   </div>
                 </div>
               )}
+
+              {/* Show stock availability for variable products when variant is selected */}
+              {product.productType === 'variable' && selectedVariant && stockManagementEnabled && availableQuantity !== null && (
+                <div className="mb-4 p-3 rounded-lg bg-muted">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Stock Status:</span>
+                    <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
+                      {availableQuantity > 0 
+                        ? product.stockManagementType === 'weight'
+                          ? `${availableQuantity.toFixed(0)}g available`
+                          : `${availableQuantity} available`
+                        : 'Out of stock'}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    For selected variant: {selectedVariant.sku}
+                  </div>
+                </div>
+              )}
               
               <div className="flex items-center justify-between mb-4">
-                <span className="font-medium">Quantity (grams)</span>
+                <span className="font-medium">
+                  {product.stockManagementType === 'weight' ? 'Quantity (grams)' : 'Quantity'}
+                </span>
                 <div className="flex items-center gap-3">
                   <Button
                     size="icon"
@@ -623,17 +651,19 @@ export default function ProductDetails() {
               <Button
                 className="w-full gap-2"
                 onClick={handleAddToCart}
-                disabled={selectedVariant ? 
-                  selectedVariant.outOfStock : 
-                  !product.inStock
+                disabled={
+                  selectedVariant 
+                    ? (stockManagementEnabled && availableQuantity !== null ? availableQuantity === 0 : selectedVariant.outOfStock)
+                    : !product.inStock
                 }
               >
                 <ShoppingCart className="h-4 w-4" />
                 {(() => {
                   if (selectedVariant) {
-                    return selectedVariant.outOfStock 
-                      ? 'Out of Stock' 
-                      : 'Add to Cart';
+                    const isOutOfStock = stockManagementEnabled && availableQuantity !== null 
+                      ? availableQuantity === 0 
+                      : selectedVariant.outOfStock;
+                    return isOutOfStock ? 'Out of Stock' : 'Add to Cart';
                   }
                   return product.inStock ? 'Add to Cart' : 'Out of Stock';
                 })()}
