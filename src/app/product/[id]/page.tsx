@@ -127,7 +127,7 @@ export default function ProductDetails() {
   }, [id, router]);
 
   // Fetch inventory information
-  const fetchInventory = async (productId: string, variantId: string | null) => {
+  const fetchInventory = useCallback(async (productId: string, variantId: string | null) => {
     try {
       // Determine if this is a weight-based product
       const isWeightBased = product?.stockManagementType === 'weight';
@@ -157,7 +157,7 @@ export default function ProductDetails() {
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
-  };
+  }, [product]);
 
   // Helper functions
   const handleImageError = (imageIndex: number) => {
@@ -169,10 +169,10 @@ export default function ProductDetails() {
     setSelectedAttributes(attributes);
     
     // Fetch inventory for the selected variant
-    if (variant && product) {
-      fetchInventory(product.id, variant.variantId);
+    if (variant && id) {
+      fetchInventory(id, variant.variantId);
     }
-  }, [product]);
+  }, [id, fetchInventory]);
 
   const handleAddToCart = () => {
     if (!product) return;
