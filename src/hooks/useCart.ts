@@ -8,9 +8,11 @@ export function useCart() {
   const cart = useCartContext();
   const { toast } = useToast();
 
-  const addToCartWithToast = async (product: Product, quantity: number = 1) => {
+  const addToCartWithToast = async (product: Product, quantity: number = 1, weightInGrams?: number) => {
     // Check inventory before adding to cart
     try {
+      const isWeightBased = product.stockManagementType === 'weight';
+      
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
         headers: {
@@ -19,7 +21,8 @@ export function useCart() {
         body: JSON.stringify({
           productId: product.id,
           variantId: product.variantId || null,
-          requestedQuantity: quantity,
+          requestedQuantity: !isWeightBased ? quantity : undefined,
+          requestedWeight: isWeightBased ? (weightInGrams || quantity) : undefined,
         }),
       });
 
@@ -36,50 +39,84 @@ export function useCart() {
       }
 
       if (!result.available) {
+        const message = isWeightBased
+          ? result.message || `Only ${result.availableWeight}g available`
+          : result.message || `Only ${result.availableQuantity} units available`;
+        
         toast({
           title: "Insufficient stock",
-          description: result.message || `Only ${result.availableQuantity} units available`,
+          description: message,
           variant: "destructive",
           duration: 3000,
         });
         return;
       }
 
-      // Get current quantity in cart
+      // Get current quantity/weight in cart
       const existingItem = cart.state.items.find(item => 
         item.product.id === product.id && 
         (!product.variantId || item.product.variantId === product.variantId)
       );
       const currentQuantityInCart = existingItem?.quantity || 0;
-      const totalRequestedQuantity = currentQuantityInCart + quantity;
 
-      // Check if total quantity (cart + new) exceeds available
-      if (result.stockManagementEnabled && totalRequestedQuantity > result.availableQuantity) {
-        const canAdd = result.availableQuantity - currentQuantityInCart;
-        if (canAdd > 0) {
-          toast({
-            title: "Limited stock",
-            description: `Only ${canAdd} more units can be added (${result.availableQuantity} total available, ${currentQuantityInCart} already in cart)`,
-            variant: "destructive",
-            duration: 4000,
-          });
-        } else {
-          toast({
-            title: "Already at maximum",
-            description: `You already have the maximum available quantity (${currentQuantityInCart}) in your cart`,
-            variant: "destructive",
-            duration: 3000,
-          });
+      if (isWeightBased) {
+        // For weight-based products
+        const totalRequestedWeight = currentQuantityInCart + (weightInGrams || quantity);
+        
+        if (result.stockManagementEnabled && totalRequestedWeight > result.availableWeight) {
+          const canAdd = result.availableWeight - currentQuantityInCart;
+          if (canAdd > 0) {
+            toast({
+              title: "Limited stock",
+              description: `Only ${canAdd.toFixed(0)}g more can be added (${result.availableWeight.toFixed(0)}g total available, ${currentQuantityInCart.toFixed(0)}g already in cart)`,
+              variant: "destructive",
+              duration: 4000,
+            });
+          } else {
+            toast({
+              title: "Already at maximum",
+              description: `You already have the maximum available weight (${currentQuantityInCart.toFixed(0)}g) in your cart`,
+              variant: "destructive",
+              duration: 3000,
+            });
+          }
+          return;
         }
-        return;
+      } else {
+        // For quantity-based products
+        const totalRequestedQuantity = currentQuantityInCart + quantity;
+        
+        if (result.stockManagementEnabled && totalRequestedQuantity > result.availableQuantity) {
+          const canAdd = result.availableQuantity - currentQuantityInCart;
+          if (canAdd > 0) {
+            toast({
+              title: "Limited stock",
+              description: `Only ${canAdd} more units can be added (${result.availableQuantity} total available, ${currentQuantityInCart} already in cart)`,
+              variant: "destructive",
+              duration: 4000,
+            });
+          } else {
+            toast({
+              title: "Already at maximum",
+              description: `You already have the maximum available quantity (${currentQuantityInCart}) in your cart`,
+              variant: "destructive",
+              duration: 3000,
+            });
+          }
+          return;
+        }
       }
 
-      // Add to cart
-      cart.addToCart(product, quantity);
+      // Add to cart (for weight-based, quantity represents grams)
+      cart.addToCart(product, weightInGrams || quantity);
+      
+      const itemDescription = isWeightBased
+        ? `${(weightInGrams || quantity).toFixed(0)}g of ${product.name}`
+        : `${quantity} × ${product.name}`;
       
       toast({
         title: "Added to cart",
-        description: `${product.name} has been added to your cart`,
+        description: `${itemDescription} has been added to your cart`,
         duration: 2000,
       });
     } catch (error) {

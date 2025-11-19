@@ -19,7 +19,10 @@ export interface Product {
   selectedAttributes?: { [key: string]: string };
   // Inventory information
   availableQuantity?: number;
-  stockManagementType?: string;
+  availableWeight?: number; // in grams
+  stockManagementType?: 'quantity' | 'weight';
+  pricePerUnit?: number; // Price per gram for weight-based products
+  baseWeightUnit?: string; // 'grams' or 'kg'
 }
 
 export interface CartItem {

@@ -70,6 +70,9 @@ export async function GET(req: NextRequest) {
           tags: products.tags,
           productType: products.productType,
           outOfStock: products.outOfStock,
+          stockManagementType: products.stockManagementType,
+          pricePerUnit: products.pricePerUnit,
+          baseWeightUnit: products.baseWeightUnit,
           createdAt: products.createdAt,
         },
         category: {
@@ -109,13 +112,19 @@ export async function GET(req: NextRequest) {
       .limit(limit);
 
     // Fetch inventory data for all products if stock management is enabled
-    let inventoryMap: Map<string, number> = new Map();
+    type InventoryData = {
+      availableQuantity?: number;
+      availableWeight?: number;
+    };
+    let inventoryMap: Map<string, InventoryData> = new Map();
+    
     if (stockManagementEnabled) {
       const productIds = productsWithDetails.map(p => p.product.id);
       const inventories = await db
         .select({
           productId: productInventory.productId,
-          availableQuantity: productInventory.availableQuantity
+          availableQuantity: productInventory.availableQuantity,
+          availableWeight: productInventory.availableWeight
         })
         .from(productInventory)
         .where(
@@ -127,7 +136,10 @@ export async function GET(req: NextRequest) {
       
       inventories.forEach(inv => {
         if (inv.productId) {
-          inventoryMap.set(inv.productId, inv.availableQuantity || 0);
+          inventoryMap.set(inv.productId, {
+            availableQuantity: inv.availableQuantity || 0,
+            availableWeight: inv.availableWeight ? parseFloat(inv.availableWeight.toString()) : 0
+          });
         }
       });
     }
@@ -192,10 +204,13 @@ export async function GET(req: NextRequest) {
         console.log('- Display Price:', displayPrice);
       }
       
-      // Get available quantity for simple products from inventory
-      const availableQuantity = !isVariableProduct && stockManagementEnabled
-        ? inventoryMap.get(item.product.id) || 0
+      // Get available inventory for simple products
+      const inventoryData = !isVariableProduct && stockManagementEnabled
+        ? inventoryMap.get(item.product.id)
         : undefined;
+
+      const stockMgmtType = item.product.stockManagementType || 'quantity';
+      const isWeightBased = stockMgmtType === 'weight';
 
       return {
         id: item.product.id,
@@ -220,8 +235,11 @@ export async function GET(req: NextRequest) {
         tags: tags,
         createdAt: item.product.createdAt,
         // Add inventory information for simple products
-        availableQuantity: availableQuantity,
-        stockManagementType: item.product.productType === 'simple' ? 'quantity' : undefined,
+        availableQuantity: !isVariableProduct ? inventoryData?.availableQuantity : undefined,
+        availableWeight: !isVariableProduct ? inventoryData?.availableWeight : undefined,
+        stockManagementType: !isVariableProduct ? stockMgmtType : undefined,
+        pricePerUnit: item.product.pricePerUnit ? parseFloat(item.product.pricePerUnit.toString()) : undefined,
+        baseWeightUnit: item.product.baseWeightUnit || undefined,
       };
     });
 

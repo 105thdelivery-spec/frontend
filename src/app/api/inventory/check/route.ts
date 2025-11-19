@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { productInventory, products, settings } from '@/lib/schema';
+import { productInventory, products, settings, productVariants } from '@/lib/schema';
 import { eq, and } from 'drizzle-orm';
 
 // Get stock management setting
@@ -19,13 +19,18 @@ async function getStockManagementSetting() {
   }
 }
 
+// Check if product uses weight-based stock management
+function isWeightBasedProduct(stockManagementType: string): boolean {
+  return stockManagementType === 'weight';
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { productId, variantId, requestedQuantity } = await req.json();
+    const { productId, variantId, requestedQuantity, requestedWeight } = await req.json();
 
-    if (!productId || !requestedQuantity) {
+    if (!productId) {
       return NextResponse.json({ 
-        error: 'Product ID and requested quantity are required' 
+        error: 'Product ID is required' 
       }, { status: 400 });
     }
 
@@ -33,13 +38,16 @@ export async function POST(req: NextRequest) {
     const stockManagementEnabled = await getStockManagementSetting();
 
     if (!stockManagementEnabled) {
-      // If stock management is disabled, allow any quantity
+      // If stock management is disabled, allow any quantity/weight
       return NextResponse.json({
         success: true,
         available: true,
         stockManagementEnabled: false,
+        isWeightBased: false,
         availableQuantity: 999999,
-        requestedQuantity
+        availableWeight: 999999,
+        requestedQuantity: requestedQuantity || 0,
+        requestedWeight: requestedWeight || 0
       });
     }
 
@@ -48,7 +56,8 @@ export async function POST(req: NextRequest) {
       where: eq(products.id, productId),
       columns: { 
         stockManagementType: true,
-        name: true
+        name: true,
+        productType: true
       }
     });
 
@@ -56,6 +65,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         error: 'Product not found' 
       }, { status: 404 });
+    }
+
+    const isWeightBased = isWeightBasedProduct(product.stockManagementType || 'quantity');
+
+    // Validate required parameters based on stock management type
+    if (isWeightBased && !requestedWeight && requestedWeight !== 0) {
+      return NextResponse.json({ 
+        error: 'Requested weight is required for weight-based products' 
+      }, { status: 400 });
+    }
+
+    if (!isWeightBased && !requestedQuantity && requestedQuantity !== 0) {
+      return NextResponse.json({ 
+        error: 'Requested quantity is required for quantity-based products' 
+      }, { status: 400 });
     }
 
     // Find inventory record
@@ -77,25 +101,50 @@ export async function POST(req: NextRequest) {
         success: false,
         available: false,
         stockManagementEnabled: true,
+        isWeightBased,
         availableQuantity: 0,
-        requestedQuantity,
+        availableWeight: 0,
+        requestedQuantity: requestedQuantity || 0,
+        requestedWeight: requestedWeight || 0,
         message: 'No inventory record found for this product'
       });
     }
 
-    const availableQuantity = inventory[0].availableQuantity || 0;
-    const isAvailable = availableQuantity >= requestedQuantity;
+    const inv = inventory[0];
 
-    return NextResponse.json({
-      success: true,
-      available: isAvailable,
-      stockManagementEnabled: true,
-      availableQuantity,
-      requestedQuantity,
-      message: isAvailable 
-        ? 'Stock available' 
-        : `Only ${availableQuantity} units available`
-    });
+    if (isWeightBased) {
+      // Weight-based inventory check
+      const availableWeight = parseFloat(inv.availableWeight || '0');
+      const isAvailable = availableWeight >= (requestedWeight || 0);
+
+      return NextResponse.json({
+        success: true,
+        available: isAvailable,
+        stockManagementEnabled: true,
+        isWeightBased: true,
+        availableWeight,
+        requestedWeight: requestedWeight || 0,
+        message: isAvailable 
+          ? 'Stock available' 
+          : `Only ${availableWeight}g available`
+      });
+    } else {
+      // Quantity-based inventory check
+      const availableQuantity = inv.availableQuantity || 0;
+      const isAvailable = availableQuantity >= (requestedQuantity || 0);
+
+      return NextResponse.json({
+        success: true,
+        available: isAvailable,
+        stockManagementEnabled: true,
+        isWeightBased: false,
+        availableQuantity,
+        requestedQuantity: requestedQuantity || 0,
+        message: isAvailable 
+          ? 'Stock available' 
+          : `Only ${availableQuantity} units available`
+      });
+    }
 
   } catch (error) {
     console.error('Error checking inventory:', error);

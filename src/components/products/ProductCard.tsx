@@ -23,10 +23,22 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     setQuantity(1);
   };
 
-  // Get max quantity based on available stock
-  const maxQuantity = product.availableQuantity !== undefined && product.availableQuantity > 0 
-    ? product.availableQuantity 
-    : 999;
+  // Determine if weight-based or quantity-based
+  const isWeightBased = product.stockManagementType === 'weight';
+  
+  // Get max quantity/weight based on available stock
+  const maxQuantity = isWeightBased
+    ? (product.availableWeight !== undefined && product.availableWeight > 0 
+        ? product.availableWeight 
+        : 999)
+    : (product.availableQuantity !== undefined && product.availableQuantity > 0 
+        ? product.availableQuantity 
+        : 999);
+  
+  // Check if out of stock
+  const isOutOfStock = isWeightBased
+    ? (product.availableWeight !== undefined && product.availableWeight === 0)
+    : (product.availableQuantity !== undefined && product.availableQuantity === 0);
 
   const getStrainColor = (strain: string) => {
     switch (strain) {
@@ -104,11 +116,14 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             {product.inStock && (
               <div className="flex flex-col gap-2 w-full">
                 {/* Show available stock if defined */}
-                {product.availableQuantity !== undefined && (
+                {(product.availableQuantity !== undefined || product.availableWeight !== undefined) && (
                   <div className="text-xs text-center">
-                    {product.availableQuantity > 0 ? (
+                    {!isOutOfStock ? (
                       <span className="text-muted-foreground">
-                        {product.availableQuantity} available
+                        {isWeightBased 
+                          ? `${product.availableWeight?.toFixed(0)}g available`
+                          : `${product.availableQuantity} available`
+                        }
                       </span>
                     ) : (
                       <span className="text-destructive font-medium">Out of stock</span>
@@ -145,10 +160,10 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                         size="sm" 
                         onClick={handleAddToCart}
                         className="gap-1"
-                        disabled={product.availableQuantity === 0}
+                        disabled={isOutOfStock}
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        Add
+                        {isWeightBased ? 'Add' : 'Add'}
                       </Button>
                     </>
                   )}
