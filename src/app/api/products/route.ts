@@ -126,7 +126,9 @@ export async function GET(req: NextRequest) {
         );
       
       inventories.forEach(inv => {
-        inventoryMap.set(inv.productId, inv.availableQuantity || 0);
+        if (inv.productId) {
+          inventoryMap.set(inv.productId, inv.availableQuantity || 0);
+        }
       });
     }
 
