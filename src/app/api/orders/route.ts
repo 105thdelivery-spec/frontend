@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems, userLoyaltyPoints, loyaltyPointsHistory, settings, products, productVariants, productInventory, stockMovements, user } from '@/lib/schema';
-import { eq, or, and } from 'drizzle-orm';
+import { eq, or, and, isNull } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 // Get stock management setting
@@ -393,6 +393,19 @@ export async function POST(req: NextRequest) {
       // Update inventory if stock management is enabled
       if (stockManagementEnabled) {
         try {
+          // Get product to determine stock management type
+          const productDetails = await db.query.products.findFirst({
+            where: eq(products.id, productId),
+            columns: { stockManagementType: true }
+          });
+
+          if (!productDetails) {
+            console.warn(`Product not found for stock deduction: ${productName}`);
+            continue;
+          }
+
+          const isWeightBased = productDetails.stockManagementType === 'weight';
+
           // Find inventory record
           const inventory = await db
             .select()
@@ -403,41 +416,91 @@ export async function POST(req: NextRequest) {
                     eq(productInventory.productId, productId),
                     eq(productInventory.variantId, variantId)
                   )!
-                : eq(productInventory.productId, productId)
+                : and(
+                    eq(productInventory.productId, productId),
+                    isNull(productInventory.variantId)
+                  )!
             )
             .limit(1);
 
           if (inventory.length > 0) {
             const currentInventory = inventory[0];
-            const newQuantity = (currentInventory.quantity || 0) - quantity;
-            const newAvailableQuantity = (currentInventory.availableQuantity || 0) - quantity;
 
-            // Update inventory
-            await db.update(productInventory)
-              .set({
-                quantity: Math.max(0, newQuantity),
-                availableQuantity: Math.max(0, newAvailableQuantity),
-                updatedAt: new Date()
-              })
-              .where(eq(productInventory.id, currentInventory.id));
+            if (isWeightBased) {
+              // Handle weight-based stock deduction
+              const currentWeightQuantity = parseFloat(currentInventory.weightQuantity || '0');
+              const currentReservedWeight = parseFloat(currentInventory.reservedWeight || '0');
+              const requestedWeight = quantity; // For weight-based products, quantity represents grams
+              
+              const newWeightQuantity = currentWeightQuantity - requestedWeight;
+              const newAvailableWeight = newWeightQuantity - currentReservedWeight;
 
-            // Create stock movement record
-            await db.insert(stockMovements).values({
-              id: uuidv4(),
-              inventoryId: currentInventory.id,
-              productId,
-              variantId: variantId || null,
-              movementType: 'out',
-              quantity: -quantity,
-              previousQuantity: currentInventory.quantity || 0,
-              newQuantity: Math.max(0, newQuantity),
-              reason: 'Order fulfillment',
-              reference: orderNumber,
-              notes: `Order item for order ${orderNumber}`,
-              costPrice: costPrice?.toString() || null,
-              processedBy: session.user.id,
-              createdAt: new Date(),
-            });
+              // Update inventory
+              await db
+                .update(productInventory)
+                .set({
+                  weightQuantity: newWeightQuantity.toString(),
+                  availableWeight: newAvailableWeight.toString(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(productInventory.id, currentInventory.id));
+
+              // Create stock movement record
+              await db.insert(stockMovements).values({
+                id: uuidv4(),
+                inventoryId: currentInventory.id,
+                productId,
+                variantId: variantId || null,
+                movementType: 'out',
+                quantity: 0, // No quantity change for weight-based
+                previousQuantity: currentInventory.quantity || 0,
+                newQuantity: currentInventory.quantity || 0,
+                weightQuantity: requestedWeight.toString(),
+                previousWeightQuantity: currentWeightQuantity.toString(),
+                newWeightQuantity: newWeightQuantity.toString(),
+                reason: 'Order fulfillment',
+                reference: orderNumber,
+                notes: `Sold ${requestedWeight}g for order ${orderNumber}`,
+                costPrice: costPrice?.toString() || null,
+                processedBy: session.user.id,
+                createdAt: new Date(),
+              });
+            } else {
+              // Handle quantity-based stock deduction
+              const currentReservedQuantity = currentInventory.reservedQuantity || 0;
+              const newQuantity = (currentInventory.quantity || 0) - quantity;
+              const newAvailableQuantity = newQuantity - currentReservedQuantity;
+
+              // Update inventory
+              await db.update(productInventory)
+                .set({
+                  quantity: Math.max(0, newQuantity),
+                  availableQuantity: Math.max(0, newAvailableQuantity),
+                  updatedAt: new Date()
+                })
+                .where(eq(productInventory.id, currentInventory.id));
+
+              // Create stock movement record
+              await db.insert(stockMovements).values({
+                id: uuidv4(),
+                inventoryId: currentInventory.id,
+                productId,
+                variantId: variantId || null,
+                movementType: 'out',
+                quantity: quantity,
+                previousQuantity: currentInventory.quantity || 0,
+                newQuantity: Math.max(0, newQuantity),
+                weightQuantity: '0.00',
+                previousWeightQuantity: '0.00',
+                newWeightQuantity: '0.00',
+                reason: 'Order fulfillment',
+                reference: orderNumber,
+                notes: `Sold ${quantity} units for order ${orderNumber}`,
+                costPrice: costPrice?.toString() || null,
+                processedBy: session.user.id,
+                createdAt: new Date(),
+              });
+            }
           }
         } catch (inventoryError) {
           console.error(`Error updating inventory for ${productName}:`, inventoryError);
