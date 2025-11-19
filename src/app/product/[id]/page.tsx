@@ -13,6 +13,7 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { VariationSelectorV2 } from '@/components/products/VariationSelectorV2';
 import { PriceMatrixEntry } from '@/hooks/useProductVariants';
+import { Product } from '@/types';
 import { 
   Plus, 
   Minus, 
@@ -53,6 +54,9 @@ interface ProductDetails {
   strain: string;
   inStock: boolean;
   productType?: string;
+  stockManagementType?: string;
+  pricePerUnit?: number;
+  baseWeightUnit?: string;
   effects: TagItem[];
   flavors: TagItem[];
   medicalUses: TagItem[];
@@ -125,6 +129,9 @@ export default function ProductDetails() {
   // Fetch inventory information
   const fetchInventory = async (productId: string, variantId: string | null) => {
     try {
+      // Determine if this is a weight-based product
+      const isWeightBased = product?.stockManagementType === 'weight';
+      
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
         headers: {
@@ -133,14 +140,19 @@ export default function ProductDetails() {
         body: JSON.stringify({
           productId,
           variantId,
-          requestedQuantity: 1,
+          requestedQuantity: !isWeightBased ? 1 : undefined,
+          requestedWeight: isWeightBased ? 1 : undefined,
         }),
       });
 
       const result = await response.json();
       if (result.success) {
         setStockManagementEnabled(result.stockManagementEnabled);
-        setAvailableQuantity(result.availableQuantity);
+        if (isWeightBased) {
+          setAvailableQuantity(result.availableWeight || 0);
+        } else {
+          setAvailableQuantity(result.availableQuantity || 0);
+        }
       }
     } catch (error) {
       console.error('Error fetching inventory:', error);
@@ -166,8 +178,11 @@ export default function ProductDetails() {
       !selectedVariant.outOfStock : 
       product.inStock;
 
+    // Determine if weight-based
+    const isWeightBased = product.stockManagementType === 'weight';
+
     // Convert ProductDetails to Product type for cart
-    const productForCart = {
+    const productForCart: Product = {
       id: product.id,
       name: product.name,
       category: product.category,
@@ -178,6 +193,11 @@ export default function ProductDetails() {
       cbd: product.cbd,
       strain: product.strain as 'indica' | 'sativa' | 'hybrid',
       inStock: effectiveInStock,
+      stockManagementType: (product.stockManagementType === 'weight' || product.stockManagementType === 'quantity') 
+        ? product.stockManagementType 
+        : undefined,
+      pricePerUnit: product.pricePerUnit,
+      baseWeightUnit: product.baseWeightUnit,
       // Add variant information if available
       ...(selectedVariant && {
         variantId: selectedVariant.variantId,
@@ -186,7 +206,13 @@ export default function ProductDetails() {
       }),
     };
 
-    addToCartWithToast(productForCart, quantity);
+    // For weight-based products, quantity represents grams
+    // For quantity-based products, quantity is unit count
+    if (isWeightBased) {
+      addToCartWithToast(productForCart, quantity, quantity); // Pass quantity as both quantity and weight
+    } else {
+      addToCartWithToast(productForCart, quantity);
+    }
   };
 
   const handleShare = async (platform?: string) => {
