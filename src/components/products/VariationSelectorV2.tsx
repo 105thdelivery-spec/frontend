@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface VariationSelectorV2Props {
   productId: string;
-  onVariantChange: (variant: any | null, selectedAttributes: { [key: string]: string }) => void;
+  onVariantChange: (variant: any | null, selectedAttributes: { [key: string]: string }, attributeValues?: { [key: string]: any }) => void;
 }
 
 export function VariationSelectorV2({ productId, onVariantChange }: VariationSelectorV2Props) {
@@ -191,10 +191,29 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
         .join('|');
       
       const variant = data.priceMatrix[attributeKey] || null;
+      
+      // Get full attribute value objects with numericValue
+      const attributeValues: { [key: string]: any } = {};
+      if (data.variationMatrix?.attributes && Array.isArray(data.variationMatrix.attributes)) {
+        data.variationMatrix.attributes.forEach((attr: any) => {
+          const selectedValue = selectedAttributes[attr.name];
+          if (selectedValue && attr.values && Array.isArray(attr.values)) {
+            const valueObj = attr.values.find((v: any) => 
+              (typeof v === 'string' && v === selectedValue) ||
+              (typeof v === 'object' && (v.value === selectedValue || v.slug === selectedValue))
+            );
+            if (valueObj) {
+              attributeValues[attr.name] = typeof valueObj === 'object' ? valueObj : { value: valueObj };
+            }
+          }
+        });
+      }
+      
       console.log('Selected variant:', variant, 'for attributes:', selectedAttributes);
-      onVariantChange(variant, selectedAttributes);
+      console.log('Attribute values with numericValue:', attributeValues);
+      onVariantChange(variant, selectedAttributes, attributeValues);
     } else {
-      onVariantChange(null, {});
+      onVariantChange(null, {}, {});
     }
   }, [selectedAttributes, data]);
 

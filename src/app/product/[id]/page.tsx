@@ -80,6 +80,7 @@ export default function ProductDetails() {
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [selectedVariant, setSelectedVariant] = useState<PriceMatrixEntry | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<{ [key: string]: string }>({});
+  const [selectedAttributeValues, setSelectedAttributeValues] = useState<{ [key: string]: any }>({});
   const [availableQuantity, setAvailableQuantity] = useState<number | null>(null);
   const [stockManagementEnabled, setStockManagementEnabled] = useState(false);
   const { addToCartWithToast, state } = useCart();
@@ -164,9 +165,16 @@ export default function ProductDetails() {
     setImageErrors(prev => new Set([...prev, imageIndex]));
   };
 
-  const handleVariantChange = useCallback((variant: PriceMatrixEntry | null, attributes: { [key: string]: string }) => {
+  const handleVariantChange = useCallback((
+    variant: PriceMatrixEntry | null, 
+    attributes: { [key: string]: string },
+    attributeValues?: { [key: string]: any }
+  ) => {
     setSelectedVariant(variant);
     setSelectedAttributes(attributes);
+    if (attributeValues) {
+      setSelectedAttributeValues(attributeValues);
+    }
     
     // Fetch inventory for the selected variant
     if (variant && id) {
@@ -185,6 +193,21 @@ export default function ProductDetails() {
 
     // Determine if weight-based
     const isWeightBased = product.stockManagementType === 'weight';
+
+    // For weight-based variable products, get the numeric value from selected attribute
+    let weightToAdd = quantity; // Default to manual quantity input
+    
+    if (isWeightBased && product.productType === 'variable' && Object.keys(selectedAttributeValues).length > 0) {
+      // Find the first attribute value that has a numericValue (typically the weight attribute)
+      const attributeWithNumericValue = Object.values(selectedAttributeValues).find(
+        (attrValue: any) => attrValue?.numericValue
+      );
+      
+      if (attributeWithNumericValue?.numericValue) {
+        weightToAdd = parseFloat(attributeWithNumericValue.numericValue);
+        console.log('Using numericValue from selected attribute:', weightToAdd);
+      }
+    }
 
     // Convert ProductDetails to Product type for cart
     const productForCart: Product = {
@@ -211,10 +234,10 @@ export default function ProductDetails() {
       }),
     };
 
-    // For weight-based products, quantity represents grams
+    // For weight-based products, use the weight from numericValue or manual input
     // For quantity-based products, quantity is unit count
     if (isWeightBased) {
-      addToCartWithToast(productForCart, quantity, quantity); // Pass quantity as both quantity and weight
+      addToCartWithToast(productForCart, weightToAdd, weightToAdd); // Pass weight as both quantity and weight
     } else {
       addToCartWithToast(productForCart, quantity);
     }

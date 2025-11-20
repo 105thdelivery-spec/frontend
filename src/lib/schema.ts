@@ -230,6 +230,7 @@ export const variationAttributeValues = mysqlTable("variation_attribute_values",
   attributeId: varchar("attribute_id", { length: 255 }).notNull(),
   value: varchar("value", { length: 255 }).notNull(), // Red, Blue, Small, Large
   slug: varchar("slug", { length: 255 }).notNull(), // red, blue, small, large
+  numericValue: decimal("numeric_value", { precision: 10, scale: 2 }), // Numeric representation (e.g., 100g, 250g, size 8, 10)
   colorCode: varchar("color_code", { length: 7 }), // #FF0000 for color attributes
   image: varchar("image", { length: 500 }), // Optional image for the value
   description: text("description"),
