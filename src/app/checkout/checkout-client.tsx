@@ -7,6 +7,7 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { CheckoutFormWithData } from '@/components/checkout/CheckoutFormWithData';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import { useWeightLabel } from '@/contexts/WeightLabelContext';
 import { processCheckout } from './actions';
 
 interface LoyaltySettings {
@@ -84,6 +85,7 @@ interface CheckoutClientPageProps {
 export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSettings, shippingStatus, deliveryStatus, user }: CheckoutClientPageProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { weightLabel } = useWeightLabel();
   const { state, clearCartWithToast } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
@@ -142,9 +144,9 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
             if (isWeightBased) {
               const availableWeight = result.availableWeight || 0;
               if (quantity > 1) {
-                errors.push(`${productName}: Insufficient stock. You have ${quantity} units × ${numericValue}g = ${totalRequestedWeight}g in cart but only ${availableWeight}g available.`);
+                errors.push(`${productName}: Insufficient stock. You have ${quantity} units × ${numericValue}${weightLabel} = ${totalRequestedWeight}${weightLabel} in cart but only ${availableWeight}${weightLabel} available.`);
               } else {
-                errors.push(`${productName}: Insufficient stock. You have ${totalRequestedWeight}g in cart but only ${availableWeight}g available.`);
+                errors.push(`${productName}: Insufficient stock. You have ${totalRequestedWeight}${weightLabel} in cart but only ${availableWeight}${weightLabel} available.`);
               }
             } else {
               const availableQuantity = result.availableQuantity || 0;
@@ -181,7 +183,7 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
         const productName = item.product?.name || 'Unknown';
         const quantity = item.quantity || 0;
         const numericValue = item.numericValue;
-        return `${index + 1}. ${productName}\n   Quantity: ${quantity}\n   numericValue: ${numericValue || 'NOT SET'}${numericValue ? 'g' : ''}`;
+        return `${index + 1}. ${productName}\n   Quantity: ${quantity}\n   numericValue: ${numericValue || 'NOT SET'}${numericValue ? weightLabel : ''}`;
       }).join('\n\n');
       
       alert(`📦 CHECKOUT PAGE - CART ITEMS:\n\n${cartSummary}\n\n⚠️ Check if numericValue is present for weight-based products!`);

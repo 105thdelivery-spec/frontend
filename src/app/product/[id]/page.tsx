@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import { useWeightLabel } from '@/contexts/WeightLabelContext';
 import { VariationSelectorV2 } from '@/components/products/VariationSelectorV2';
 import { PriceMatrixEntry } from '@/hooks/useProductVariants';
 import { Product } from '@/types';
@@ -88,6 +89,7 @@ export default function ProductDetails() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { weightLabel } = useWeightLabel();
   const [product, setProduct] = useState<ProductDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -220,7 +222,7 @@ export default function ProductDetails() {
     
     if (isWeightBased && selectedVariant && selectedNumericValue) {
       effectiveWeight = selectedNumericValue;
-      console.log(`✓ Using numeric value from variation: ${effectiveWeight}g`);
+      console.log(`✓ Using numeric value from variation: ${effectiveWeight}${weightLabel}`);
     } else if (isWeightBased) {
       console.warn('⚠️ Weight-based product but no numericValue!', {
         hasSelectedVariant: !!selectedVariant,
@@ -258,7 +260,7 @@ export default function ProductDetails() {
     // For quantity-based products: quantity=count
     if (isWeightBased) {
       console.log(`→ Calling addToCartWithToast(product, 1, ${effectiveWeight})`);
-      alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}g\n\nThis ${effectiveWeight}g should be deducted from stock!`);
+      //alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}${weightLabel}\n\nThis ${effectiveWeight}${weightLabel} should be deducted from stock!`);
       addToCartWithToast(productForCart, 1, effectiveWeight);
     } else {
       console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
@@ -624,7 +626,7 @@ export default function ProductDetails() {
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
                       {availableQuantity > 0 
                         ? product.stockManagementType === 'weight'
-                          ? `${availableQuantity.toFixed(0)}g available`
+                          ? `${availableQuantity.toFixed(0)}${weightLabel} available`
                           : `${availableQuantity} available`
                         : 'Out of stock'}
                     </Badge>
@@ -640,7 +642,7 @@ export default function ProductDetails() {
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
                       {availableQuantity > 0 
                         ? product.stockManagementType === 'weight'
-                          ? `${availableQuantity.toFixed(0)}g available`
+                          ? `${availableQuantity.toFixed(0)}${weightLabel} available`
                           : `${availableQuantity} available`
                         : 'Out of stock'}
                     </Badge>
@@ -653,7 +655,7 @@ export default function ProductDetails() {
               
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">
-                  {product.stockManagementType === 'weight' ? 'Quantity (grams)' : 'Quantity'}
+                  {product.stockManagementType === 'weight' ? `Quantity (${weightLabel})` : 'Quantity'}
                 </span>
                 <div className="flex items-center gap-3">
                   <Button

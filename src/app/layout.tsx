@@ -7,6 +7,7 @@ import { CartProvider } from "@/contexts/CartContext"
 import { SessionProvider } from "@/components/providers/SessionProvider"
 import { ChatProvider } from "@/contexts/ChatContext"
 import { ThemeProvider } from "@/components/providers/ThemeProvider"
+import { WeightLabelProvider } from "@/contexts/WeightLabelContext"
 import AuthenticatedLicenseGuard from "@/components/AuthenticatedLicenseGuard"
 
 export const metadata: Metadata = {
@@ -24,17 +25,19 @@ export default function RootLayout({
       <body>
         <SessionProvider>
           <ThemeProvider>
-            <TooltipProvider>
-              <CartProvider>
-                <ChatProvider>
-                  <AuthenticatedLicenseGuard>
-                    <Toaster />
-                    <Sonner />
-                    {children}
-                  </AuthenticatedLicenseGuard>
-                </ChatProvider>
-              </CartProvider>
-            </TooltipProvider>
+            <WeightLabelProvider>
+              <TooltipProvider>
+                <CartProvider>
+                  <ChatProvider>
+                    <AuthenticatedLicenseGuard>
+                      <Toaster />
+                      <Sonner />
+                      {children}
+                    </AuthenticatedLicenseGuard>
+                  </ChatProvider>
+                </CartProvider>
+              </TooltipProvider>
+            </WeightLabelProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>
