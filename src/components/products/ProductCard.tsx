@@ -20,6 +20,13 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const router = useRouter();
   const { weightLabel } = useWeightLabel();
 
+  // Debug image URL
+  console.log(`Product ${product.name}:`, {
+    image: product.image,
+    hasImage: !!product.image,
+    imageType: typeof product.image
+  });
+
   const handleAddToCart = () => {
     onAddToCart(product, quantity);
     setQuantity(1);
@@ -62,11 +69,21 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             src={product.image}
             alt={product.name}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            onError={() => setImageError(true)}
+            onError={(e) => {
+              console.error(`Image failed to load for ${product.name}:`, product.image);
+              console.error('Error event:', e);
+              setImageError(true);
+            }}
+            onLoad={() => {
+              console.log(`Image loaded successfully for ${product.name}`);
+            }}
           />
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center">
             <Package className="w-16 h-16 text-muted-foreground/50" />
+            {imageError && (
+              <span className="text-xs text-muted-foreground absolute bottom-2">Image failed</span>
+            )}
           </div>
         )}
         {!product.inStock && (

@@ -152,6 +152,13 @@ export async function GET(req: NextRequest) {
       
       // Parse images using the normalization utility (handles sortOrder)
       images = normalizeProductImages(item.product.images);
+      
+      // Debug logging for images
+      console.log(`Product ${item.product.name} images:`, {
+        raw: item.product.images,
+        parsed: images,
+        firstImage: images[0]
+      });
 
       // Parse tags using the normalization utility
       tags = normalizeProductTags(item.product.tags);
