@@ -319,13 +319,19 @@ export async function processCheckout(formData: FormData) {
 
     // Create order items and manage inventory
     for (const item of checkoutData.items) {
+      console.log('=== PROCESSING CART ITEM ===');
+      console.log('Full item:', JSON.stringify(item, null, 2));
+      
       const productId = item.product?.id || item.id;
       const productName = item.product?.name || item.name;
       const quantity = item.quantity || 1;
       const numericValue = item.numericValue; // Weight in grams for weight-based products
       const price = item.product?.price || item.price || 0;
       
-      console.log(`[Checkout] Processing order item: ${productName}, quantity: ${quantity}, numericValue: ${numericValue}, item:`, item);
+      console.log(`Product: ${productName}`);
+      console.log(`Quantity: ${quantity}`);
+      console.log(`numericValue: ${numericValue}`);
+      console.log(`Has numericValue: ${numericValue !== undefined && numericValue !== null}`);
 
       // Get cost price and compare price from product or variant at time of sale
       let costPrice = null;
@@ -461,13 +467,19 @@ export async function processCheckout(formData: FormData) {
               // If numericValue is not available, fall back to quantity * some default
               const requestedWeight = numericValue || quantity;
               
-              console.log(`[Checkout] Weight-based deduction for ${productName}:`, {
-                quantity,
-                numericValue,
-                requestedWeight,
-                currentWeightQuantity,
-                variantId
-              });
+              console.log('=== WEIGHT-BASED DEDUCTION ===');
+              console.log(`Product: ${productName}`);
+              console.log(`quantity: ${quantity}`);
+              console.log(`numericValue: ${numericValue}`);
+              console.log(`requestedWeight (will deduct): ${requestedWeight}g`);
+              console.log(`currentWeightQuantity: ${currentWeightQuantity}g`);
+              console.log(`variantId: ${variantId}`);
+              
+              if (!numericValue) {
+                console.error('⚠️ WARNING: numericValue is missing! Using quantity instead:', quantity);
+              } else {
+                console.log(`✓ Using numericValue: ${numericValue}g`);
+              }
               
               const newWeightQuantity = currentWeightQuantity - requestedWeight;
               const newAvailableWeight = newWeightQuantity - currentReservedWeight;

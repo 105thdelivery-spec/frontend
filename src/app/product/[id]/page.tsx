@@ -185,7 +185,11 @@ export default function ProductDetails() {
     setSelectedAttributes(attributes);
     setSelectedNumericValue(numericValue || null);
     
-    console.log('Variant changed - numericValue:', numericValue);
+    console.log('=== VARIANT CHANGE ===');
+    console.log('Variant:', variant);
+    console.log('Attributes:', attributes);
+    console.log('numericValue received:', numericValue);
+    console.log('selectedNumericValue will be set to:', numericValue || null);
     
     // Fetch inventory for the selected variant
     if (variant && id) {
@@ -195,6 +199,12 @@ export default function ProductDetails() {
 
   const handleAddToCart = () => {
     if (!product) return;
+
+    console.log('=== ADD TO CART ===');
+    console.log('product.stockManagementType:', product.stockManagementType);
+    console.log('selectedVariant:', selectedVariant);
+    console.log('selectedNumericValue:', selectedNumericValue);
+    console.log('quantity:', quantity);
 
     // Use variant price if available, otherwise use base product price
     const effectivePrice = selectedVariant?.price || product.price;
@@ -210,7 +220,13 @@ export default function ProductDetails() {
     
     if (isWeightBased && selectedVariant && selectedNumericValue) {
       effectiveWeight = selectedNumericValue;
-      console.log(`Using numeric value from variation: ${effectiveWeight}g`);
+      console.log(`✓ Using numeric value from variation: ${effectiveWeight}g`);
+    } else if (isWeightBased) {
+      console.warn('⚠️ Weight-based product but no numericValue!', {
+        hasSelectedVariant: !!selectedVariant,
+        selectedNumericValue,
+        willUseQuantity: quantity
+      });
     }
 
     // Convert ProductDetails to Product type for cart
@@ -241,9 +257,10 @@ export default function ProductDetails() {
     // For weight-based products: quantity=1 (unit count), weightInGrams=effectiveWeight
     // For quantity-based products: quantity=count
     if (isWeightBased) {
+      console.log(`→ Calling addToCartWithToast(product, 1, ${effectiveWeight})`);
       addToCartWithToast(productForCart, 1, effectiveWeight);
-      console.log(`Adding weight-based product: quantity=1, weight=${effectiveWeight}g`);
     } else {
+      console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
       addToCartWithToast(productForCart, quantity);
     }
   };
