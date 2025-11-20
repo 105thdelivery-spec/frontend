@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, productVariants, variationAttributes, variationAttributeValues } from '@/lib/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { normalizeVariationAttributes, normalizeVariantOptions } from '@/utils/jsonUtils';
 
 export async function GET(
@@ -75,15 +75,53 @@ export async function GET(
       ))
       .orderBy(productVariants.position);
 
-    // Parse variation attributes for frontend using utility function
-    let variationAttributes = null;
+    // Fetch full variation attributes with values including numericValue from database
+    let variationMatrix = null;
     try {
       if (productData.variationAttributes) {
-        variationAttributes = normalizeVariationAttributes(productData.variationAttributes);
-        console.log('Normalized variation attributes:', variationAttributes);
+        const parsedAttributeIds = normalizeVariationAttributes(productData.variationAttributes);
+        
+        // Fetch full attribute details from database
+        const attributeIds = parsedAttributeIds.map((attr: any) => attr.id).filter(Boolean);
+        
+        if (attributeIds.length > 0) {
+          // Fetch attributes
+          const attributesFromDb = await db
+            .select()
+            .from(variationAttributes)
+            .where(sql`${variationAttributes.id} IN (${sql.join(attributeIds.map(id => sql`${id}`), sql`, `)})`);
+          
+          // Fetch all values for these attributes
+          const valuesFromDb = await db
+            .select()
+            .from(variationAttributeValues)
+            .where(sql`${variationAttributeValues.attributeId} IN (${sql.join(attributeIds.map(id => sql`${id}`), sql`, `)})`);
+          
+          // Build the variation matrix with full details
+          variationMatrix = {
+            attributes: attributesFromDb.map(attr => ({
+              id: attr.id,
+              name: attr.name,
+              slug: attr.slug,
+              type: attr.type,
+              values: valuesFromDb
+                .filter(val => val.attributeId === attr.id)
+                .map(val => ({
+                  id: val.id,
+                  value: val.value,
+                  slug: val.slug,
+                  numericValue: val.numericValue ? parseFloat(val.numericValue.toString()) : null,
+                  colorCode: val.colorCode,
+                  image: val.image
+                }))
+            }))
+          };
+          
+          console.log('Fetched variation matrix from database:', variationMatrix);
+        }
       }
     } catch (e) {
-      console.warn('Failed to parse variation attributes:', e);
+      console.warn('Failed to fetch variation attributes from database:', e);
     }
 
     // Transform variants data
@@ -155,7 +193,7 @@ export async function GET(
           basePrice: parseFloat(productData.basePrice?.toString() || '0'),
         },
         variants: transformedVariants,
-        variationAttributes,
+        variationMatrix,
         priceMatrix,
         totalVariants: transformedVariants.length,
       },

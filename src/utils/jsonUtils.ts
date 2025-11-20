@@ -94,7 +94,8 @@ export function normalizeVariationAttributes(variationAttributes: any): any[] {
           value: normalizedValue.value || normalizedValue.name || normalizedValue,
           slug: normalizedValue.slug || (normalizedValue.value || normalizedValue)?.toString().toLowerCase().replace(/[^a-z0-9]/g, '-') || '',
           colorCode: normalizedValue.colorCode,
-          image: normalizedValue.image
+          image: normalizedValue.image,
+          numericValue: normalizedValue.numericValue || normalizedValue.numeric_value || null
         };
       });
     }
