@@ -66,6 +66,21 @@ interface ProductDetails {
     flowering: string;
     yield: string;
   };
+  variationMatrix?: {
+    attributes: Array<{
+      name: string;
+      slug: string;
+      type: string;
+      values: Array<{
+        id: string;
+        value: string;
+        slug: string;
+        numericValue?: string;
+        colorCode?: string;
+        image?: string;
+      }>;
+    }>;
+  };
 }
 
 export default function ProductDetails() {
@@ -80,7 +95,7 @@ export default function ProductDetails() {
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [selectedVariant, setSelectedVariant] = useState<PriceMatrixEntry | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<{ [key: string]: string }>({});
-  const [selectedAttributeValues, setSelectedAttributeValues] = useState<{ [key: string]: any }>({});
+  const [selectedNumericValue, setSelectedNumericValue] = useState<number | null>(null);
   const [availableQuantity, setAvailableQuantity] = useState<number | null>(null);
   const [stockManagementEnabled, setStockManagementEnabled] = useState(false);
   const { addToCartWithToast, state } = useCart();
@@ -165,16 +180,12 @@ export default function ProductDetails() {
     setImageErrors(prev => new Set([...prev, imageIndex]));
   };
 
-  const handleVariantChange = useCallback((
-    variant: PriceMatrixEntry | null, 
-    attributes: { [key: string]: string },
-    attributeValues?: { [key: string]: any }
-  ) => {
+  const handleVariantChange = useCallback((variant: PriceMatrixEntry | null, attributes: { [key: string]: string }, numericValue?: number | null) => {
     setSelectedVariant(variant);
     setSelectedAttributes(attributes);
-    if (attributeValues) {
-      setSelectedAttributeValues(attributeValues);
-    }
+    setSelectedNumericValue(numericValue || null);
+    
+    console.log('Variant changed - numericValue:', numericValue);
     
     // Fetch inventory for the selected variant
     if (variant && id) {
@@ -194,19 +205,12 @@ export default function ProductDetails() {
     // Determine if weight-based
     const isWeightBased = product.stockManagementType === 'weight';
 
-    // For weight-based variable products, get the numeric value from selected attribute
-    let weightToAdd = quantity; // Default to manual quantity input
+    // For weight-based variable products, use the numeric value from selected variation
+    let effectiveWeight = quantity; // Default to quantity input
     
-    if (isWeightBased && product.productType === 'variable' && Object.keys(selectedAttributeValues).length > 0) {
-      // Find the first attribute value that has a numericValue (typically the weight attribute)
-      const attributeWithNumericValue = Object.values(selectedAttributeValues).find(
-        (attrValue: any) => attrValue?.numericValue
-      );
-      
-      if (attributeWithNumericValue?.numericValue) {
-        weightToAdd = parseFloat(attributeWithNumericValue.numericValue);
-        console.log('Using numericValue from selected attribute:', weightToAdd);
-      }
+    if (isWeightBased && selectedVariant && selectedNumericValue) {
+      effectiveWeight = selectedNumericValue;
+      console.log(`Using numeric value from variation: ${effectiveWeight}g`);
     }
 
     // Convert ProductDetails to Product type for cart
@@ -234,10 +238,10 @@ export default function ProductDetails() {
       }),
     };
 
-    // For weight-based products, use the weight from numericValue or manual input
+    // For weight-based products, use effectiveWeight (from numericValue or quantity input)
     // For quantity-based products, quantity is unit count
     if (isWeightBased) {
-      addToCartWithToast(productForCart, weightToAdd, weightToAdd); // Pass weight as both quantity and weight
+      addToCartWithToast(productForCart, effectiveWeight, effectiveWeight);
     } else {
       addToCartWithToast(productForCart, quantity);
     }

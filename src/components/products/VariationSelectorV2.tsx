@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface VariationSelectorV2Props {
   productId: string;
-  onVariantChange: (variant: any | null, selectedAttributes: { [key: string]: string }, attributeValues?: { [key: string]: any }) => void;
+  onVariantChange: (variant: any | null, selectedAttributes: { [key: string]: string }, numericValue?: number | null) => void;
 }
 
 export function VariationSelectorV2({ productId, onVariantChange }: VariationSelectorV2Props) {
@@ -192,28 +192,29 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
       
       const variant = data.priceMatrix[attributeKey] || null;
       
-      // Get full attribute value objects with numericValue
-      const attributeValues: { [key: string]: any } = {};
-      if (data.variationMatrix?.attributes && Array.isArray(data.variationMatrix.attributes)) {
-        data.variationMatrix.attributes.forEach((attr: any) => {
-          const selectedValue = selectedAttributes[attr.name];
-          if (selectedValue && attr.values && Array.isArray(attr.values)) {
-            const valueObj = attr.values.find((v: any) => 
-              (typeof v === 'string' && v === selectedValue) ||
-              (typeof v === 'object' && (v.value === selectedValue || v.slug === selectedValue))
-            );
-            if (valueObj) {
-              attributeValues[attr.name] = typeof valueObj === 'object' ? valueObj : { value: valueObj };
+      // Extract numeric value from selected attributes
+      let numericValue: number | null = null;
+      if (data.variationMatrix?.attributes) {
+        for (const attr of data.variationMatrix.attributes) {
+          const selectedSlug = selectedAttributes[attr.name];
+          if (selectedSlug && attr.values) {
+            const selectedValueObj = attr.values.find((v: any) => {
+              const vSlug = typeof v === 'string' ? v : (v.slug || v.value);
+              return vSlug === selectedSlug;
+            });
+            if (selectedValueObj && typeof selectedValueObj === 'object' && selectedValueObj.numericValue) {
+              numericValue = parseFloat(selectedValueObj.numericValue);
+              console.log(`Found numeric value: ${numericValue} for ${attr.name}:${selectedSlug}`);
+              break; // Use the first numeric value found
             }
           }
-        });
+        }
       }
       
-      console.log('Selected variant:', variant, 'for attributes:', selectedAttributes);
-      console.log('Attribute values with numericValue:', attributeValues);
-      onVariantChange(variant, selectedAttributes, attributeValues);
+      console.log('Selected variant:', variant, 'for attributes:', selectedAttributes, 'numericValue:', numericValue);
+      onVariantChange(variant, selectedAttributes, numericValue);
     } else {
-      onVariantChange(null, {}, {});
+      onVariantChange(null, {}, null);
     }
   }, [selectedAttributes, data]);
 
