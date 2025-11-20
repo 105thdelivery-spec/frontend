@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
@@ -88,6 +88,20 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
 
+  // Show cart items on checkout page load
+  useEffect(() => {
+    if (state.items && state.items.length > 0) {
+      const cartSummary = state.items.map((item, index) => {
+        const productName = item.product?.name || 'Unknown';
+        const quantity = item.quantity || 0;
+        const numericValue = item.numericValue;
+        return `${index + 1}. ${productName}\n   Quantity: ${quantity}\n   numericValue: ${numericValue || 'NOT SET'}${numericValue ? 'g' : ''}`;
+      }).join('\n\n');
+      
+      alert(`📦 CHECKOUT PAGE - CART ITEMS:\n\n${cartSummary}\n\n⚠️ Check if numericValue is present for weight-based products!`);
+    }
+  }, []); // Only run once on mount
+
   // Calculate total with tax
   const subtotal = state.total;
   const tax = subtotal * 0.00;
@@ -97,6 +111,16 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
     setIsProcessing(true);
     
     try {
+      // Show what we're sending to server
+      const itemsSummary = state.items.map((item, index) => {
+        const productName = item.product?.name || 'Unknown';
+        const quantity = item.quantity || 0;
+        const numericValue = item.numericValue;
+        return `${index + 1}. ${productName}: qty=${quantity}, numericValue=${numericValue || 'NOT SET'}`;
+      }).join('\n');
+      
+      alert(`🚀 SUBMITTING ORDER:\n\n${itemsSummary}\n\nThese numericValue(s) will be deducted from stock!`);
+      
       // Calculate fees based on order type
       const deliveryFee = data.orderType === 'delivery' ? orderSettings.deliveryFee : 0;
       const shippingFee = data.orderType === 'shipping' ? orderSettings.shippingFee : 0;
