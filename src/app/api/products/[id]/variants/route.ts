@@ -65,6 +65,7 @@ export async function GET(
         image: productVariants.image,
         inventoryQuantity: productVariants.inventoryQuantity,
         variantOptions: productVariants.variantOptions,
+        numericValueOfVariationAttribute: productVariants.numericValueOfVariationAttribute,
         isActive: productVariants.isActive,
         outOfStock: productVariants.outOfStock,
       })
@@ -151,6 +152,7 @@ export async function GET(
         image: variant.image || '',
         inventoryQuantity: variant.inventoryQuantity || 0,
         attributes,
+        numericValue: variant.numericValueOfVariationAttribute ? parseFloat(variant.numericValueOfVariationAttribute.toString()) : null,
         isActive: variant.isActive || false,
         outOfStock: Boolean(variant.outOfStock), // Convert to boolean (1 becomes true, 0/null becomes false)
       };
@@ -178,6 +180,7 @@ export async function GET(
         inventoryQuantity: variant.inventoryQuantity,
         sku: variant.sku,
         outOfStock: variant.outOfStock,
+        numericValue: variant.numericValue,
       };
     });
     

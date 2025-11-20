@@ -192,26 +192,12 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
       
       const variant = data.priceMatrix[attributeKey] || null;
       
-      // Extract numeric value from selected attributes
-      let numericValue: number | null = null;
-      if (data.variationMatrix?.attributes) {
-        for (const attr of data.variationMatrix.attributes) {
-          const selectedSlug = selectedAttributes[attr.name];
-          if (selectedSlug && attr.values) {
-            const selectedValueObj = attr.values.find((v: any) => {
-              const vSlug = typeof v === 'string' ? v : (v.slug || v.value);
-              return vSlug === selectedSlug;
-            });
-            if (selectedValueObj && typeof selectedValueObj === 'object' && selectedValueObj.numericValue) {
-              numericValue = parseFloat(selectedValueObj.numericValue);
-              console.log(`Found numeric value: ${numericValue} for ${attr.name}:${selectedSlug}`);
-              break; // Use the first numeric value found
-            }
-          }
-        }
-      }
+      // Get numeric value directly from variant (stored in product_variants table)
+      const numericValue = variant?.numericValue || null;
       
-      console.log('Selected variant:', variant, 'for attributes:', selectedAttributes, 'numericValue:', numericValue);
+      console.log('Selected variant:', variant, 'for attributes:', selectedAttributes);
+      console.log('numericValue from variant:', numericValue);
+      
       onVariantChange(variant, selectedAttributes, numericValue);
     } else {
       onVariantChange(null, {}, null);

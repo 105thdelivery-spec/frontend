@@ -205,6 +205,7 @@ export const productVariants = mysqlTable("product_variants", {
   inventoryManagement: boolean("inventory_management").default(true),
   allowBackorder: boolean("allow_backorder").default(false),
   variantOptions: json("variant_options"), // {color: "Red", size: "Large"}
+  numericValueOfVariationAttribute: decimal("numeric_value_of_variation_attribute", { precision: 10, scale: 2 }), // Numeric value from variation_attribute_values (e.g., 100 for 100g, 250 for 250g)
   isActive: boolean("is_active").default(true),
   outOfStock: boolean("out_of_stock").default(false),
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
