@@ -478,16 +478,15 @@ export async function processCheckout(formData: FormData) {
               // Alert to show what we're about to deduct
               if (!numericValue) {
                 console.error('⚠️ WARNING: numericValue is missing! Using quantity instead:', quantity);
-                // Don't alert here, will be caught by the general alert below
               } else {
                 console.log(`✓ Using numericValue: ${numericValue}g`);
               }
               
-              // Show alert with deduction info (only log, alerts are client-side only)
-              console.log(`🔄 DEDUCTING FROM STOCK:\n\nProduct: ${productName}\nCurrent Stock: ${currentWeightQuantity}g\nWill Deduct: ${requestedWeight}g\nNew Stock: ${newWeightQuantity}g\n\nnumericValue from cart: ${numericValue || 'NOT SET'}\nUsing: ${requestedWeight}g`);
-              
               const newWeightQuantity = currentWeightQuantity - requestedWeight;
               const newAvailableWeight = newWeightQuantity - currentReservedWeight;
+              
+              // Show deduction info
+              console.log(`🔄 DEDUCTING FROM STOCK:\n\nProduct: ${productName}\nCurrent Stock: ${currentWeightQuantity}g\nWill Deduct: ${requestedWeight}g\nNew Stock: ${newWeightQuantity}g\n\nnumericValue from cart: ${numericValue || 'NOT SET'}\nUsing: ${requestedWeight}g`);
 
               // Update inventory
               await db
