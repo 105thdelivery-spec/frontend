@@ -87,8 +87,74 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
   const { state, clearCartWithToast } = useCart();
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  const [stockValidationErrors, setStockValidationErrors] = useState<string[]>([]);
+  const [isValidatingStock, setIsValidatingStock] = useState(true);
 
-  // Show cart items on checkout page load
+  // Validate stock on checkout page load
+  useEffect(() => {
+    const validateStock = async () => {
+      if (!state.items || state.items.length === 0) {
+        setIsValidatingStock(false);
+        return;
+      }
+
+      const errors: string[] = [];
+
+      for (const item of state.items) {
+        const productName = item.product?.name || 'Unknown Product';
+        const quantity = item.quantity || 0;
+        const numericValue = item.numericValue;
+        const isWeightBased = item.product?.stockManagementType === 'weight';
+
+        try {
+          // Check inventory for each item
+          const response = await fetch('/api/inventory/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productId: item.product.id,
+              variantId: item.product.variantId || null,
+              requestedQuantity: !isWeightBased ? quantity : undefined,
+              requestedWeight: isWeightBased ? (numericValue || quantity) : undefined,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.available) {
+            if (isWeightBased) {
+              const requestedWeight = numericValue || quantity;
+              const availableWeight = result.availableWeight || 0;
+              errors.push(`${productName}: Insufficient stock. You have ${requestedWeight}g in cart but only ${availableWeight}g available.`);
+            } else {
+              const availableQuantity = result.availableQuantity || 0;
+              errors.push(`${productName}: Insufficient stock. You have ${quantity} in cart but only ${availableQuantity} available.`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error validating stock for ${productName}:`, error);
+          errors.push(`${productName}: Unable to verify stock availability.`);
+        }
+      }
+
+      setStockValidationErrors(errors);
+      setIsValidatingStock(false);
+
+      // Show errors if any
+      if (errors.length > 0) {
+        toast({
+          title: "Stock Validation Failed",
+          description: `${errors.length} item(s) have insufficient stock. Please update your cart.`,
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+    };
+
+    validateStock();
+  }, [state.items, toast]);
+
+  // Show cart items on checkout page load (for debugging)
   useEffect(() => {
     if (state.items && state.items.length > 0) {
       const cartSummary = state.items.map((item, index) => {
@@ -108,6 +174,28 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
   const total = subtotal + tax;
 
   const handleCheckoutSubmit = async (data: CheckoutData) => {
+    // Block checkout if there are stock validation errors
+    if (stockValidationErrors.length > 0) {
+      toast({
+        title: "Cannot Complete Checkout",
+        description: "Some items in your cart have insufficient stock. Please update your cart and try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+
+    // Block checkout if still validating
+    if (isValidatingStock) {
+      toast({
+        title: "Please Wait",
+        description: "Validating stock availability...",
+        variant: "default",
+        duration: 3000,
+      });
+      return;
+    }
+
     setIsProcessing(true);
     
     try {
@@ -214,6 +302,39 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
       <Header title="Checkout" />
       
       <main className="container mx-auto px-4 py-6 max-w-2xl">
+        {/* Stock Validation Errors */}
+        {stockValidationErrors.length > 0 && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="text-destructive mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-destructive mb-2">Insufficient Stock</h3>
+                <ul className="space-y-1 text-sm text-destructive">
+                  {stockValidationErrors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-sm font-medium">
+                  Please update your cart before proceeding with checkout.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stock Validation Loading */}
+        {isValidatingStock && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+              <p className="text-sm text-blue-900">Validating stock availability...</p>
+            </div>
+          </div>
+        )}
 
         {isProcessing ? (
           <div className="text-center py-12 space-y-4">
