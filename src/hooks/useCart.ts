@@ -114,18 +114,14 @@ export function useCart() {
       // For quantity-based: quantity=count, numericValue=undefined
       if (isWeightBased) {
         cart.addToCart(product, quantity, weightInGrams);
-        console.log(`Added to cart: quantity=${quantity}, numericValue=${weightInGrams}g`);
+        console.log(`Added to cart: quantity=${quantity}, numericValue=${weightInGrams}`);
       } else {
         cart.addToCart(product, quantity);
       }
       
-      const itemDescription = isWeightBased
-        ? `${(weightInGrams || quantity).toFixed(0)}g of ${product.name}`
-        : `${quantity} × ${product.name}`;
-      
       toast({
         title: "Added to cart",
-        description: `${itemDescription} has been added to your cart`,
+        description: `${product.name} has been added to your cart`,
         duration: 2000,
       });
     } catch (error) {

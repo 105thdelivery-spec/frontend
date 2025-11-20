@@ -179,14 +179,13 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
   // Show cart items on checkout page load (for debugging)
   useEffect(() => {
     if (state.items && state.items.length > 0) {
-      const cartSummary = state.items.map((item, index) => {
+      // Log cart items for debugging
+      state.items.forEach((item, index) => {
         const productName = item.product?.name || 'Unknown';
         const quantity = item.quantity || 0;
         const numericValue = item.numericValue;
-        return `${index + 1}. ${productName}\n   Quantity: ${quantity}\n   numericValue: ${numericValue || 'NOT SET'}${numericValue ? weightLabel : ''}`;
-      }).join('\n\n');
-      
-      alert(`📦 CHECKOUT PAGE - CART ITEMS:\n\n${cartSummary}\n\n⚠️ Check if numericValue is present for weight-based products!`);
+        console.log(`Cart item ${index + 1}: ${productName}, quantity: ${quantity}, numericValue: ${numericValue || 'NOT SET'}`);
+      });
     }
   }, []); // Only run once on mount
 
@@ -222,14 +221,13 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
     
     try {
       // Show what we're sending to server
-      const itemsSummary = state.items.map((item, index) => {
+      // Log order submission for debugging
+      state.items.forEach((item, index) => {
         const productName = item.product?.name || 'Unknown';
         const quantity = item.quantity || 0;
         const numericValue = item.numericValue;
-        return `${index + 1}. ${productName}: qty=${quantity}, numericValue=${numericValue || 'NOT SET'}`;
-      }).join('\n');
-      
-      alert(`🚀 SUBMITTING ORDER:\n\n${itemsSummary}\n\nThese numericValue(s) will be deducted from stock!`);
+        console.log(`Submitting order item ${index + 1}: ${productName}, qty=${quantity}, numericValue=${numericValue || 'NOT SET'}`);
+      });
       
       // Calculate fees based on order type
       const deliveryFee = data.orderType === 'delivery' ? orderSettings.deliveryFee : 0;

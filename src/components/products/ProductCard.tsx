@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types';
 import { useRouter } from 'next/navigation';
+import { useWeightLabel } from '@/contexts/WeightLabelContext';
 
 interface ProductCardProps {
   product: Product;
@@ -17,6 +18,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const [quantity, setQuantity] = useState(1);
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
+  const { weightLabel } = useWeightLabel();
 
   const handleAddToCart = () => {
     onAddToCart(product, quantity);
@@ -121,7 +123,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                     {!isOutOfStock ? (
                       <span className="text-muted-foreground">
                         {isWeightBased 
-                          ? `${product.availableWeight?.toFixed(0)}g available`
+                          ? `${product.availableWeight?.toFixed(0)}${weightLabel} available`
                           : `${product.availableQuantity} available`
                         }
                       </span>
