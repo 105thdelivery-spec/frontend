@@ -90,14 +90,16 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
   const [stockValidationErrors, setStockValidationErrors] = useState<string[]>([]);
   const [isValidatingStock, setIsValidatingStock] = useState(true);
 
-  // Validate stock on checkout page load
+  // Validate stock whenever cart items change
   useEffect(() => {
     const validateStock = async () => {
       if (!state.items || state.items.length === 0) {
         setIsValidatingStock(false);
+        setStockValidationErrors([]);
         return;
       }
 
+      setIsValidatingStock(true);
       const errors: string[] = [];
 
       for (const item of state.items) {
@@ -105,6 +107,19 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
         const quantity = item.quantity || 0;
         const numericValue = item.numericValue;
         const isWeightBased = item.product?.stockManagementType === 'weight';
+
+        // For weight-based products:
+        // - quantity = number of units (e.g., 2 means 2 units)
+        // - numericValue = weight per unit in grams (e.g., 250g)
+        // - totalRequestedWeight = quantity × numericValue (e.g., 2 × 250g = 500g)
+        const totalRequestedWeight = isWeightBased && numericValue ? (quantity * numericValue) : 0;
+
+        console.log(`Validating ${productName}:`, {
+          quantity,
+          numericValue,
+          isWeightBased,
+          totalRequestedWeight
+        });
 
         try {
           // Check inventory for each item
@@ -115,17 +130,22 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
               productId: item.product.id,
               variantId: item.product.variantId || null,
               requestedQuantity: !isWeightBased ? quantity : undefined,
-              requestedWeight: isWeightBased ? (numericValue || quantity) : undefined,
+              requestedWeight: isWeightBased ? totalRequestedWeight : undefined,
             }),
           });
 
           const result = await response.json();
 
+          console.log(`Validation result for ${productName}:`, result);
+
           if (!response.ok || !result.available) {
             if (isWeightBased) {
-              const requestedWeight = numericValue || quantity;
               const availableWeight = result.availableWeight || 0;
-              errors.push(`${productName}: Insufficient stock. You have ${requestedWeight}g in cart but only ${availableWeight}g available.`);
+              if (quantity > 1) {
+                errors.push(`${productName}: Insufficient stock. You have ${quantity} units × ${numericValue}g = ${totalRequestedWeight}g in cart but only ${availableWeight}g available.`);
+              } else {
+                errors.push(`${productName}: Insufficient stock. You have ${totalRequestedWeight}g in cart but only ${availableWeight}g available.`);
+              }
             } else {
               const availableQuantity = result.availableQuantity || 0;
               errors.push(`${productName}: Insufficient stock. You have ${quantity} in cart but only ${availableQuantity} available.`);
