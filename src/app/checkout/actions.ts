@@ -323,6 +323,8 @@ export async function processCheckout(formData: FormData) {
       const productName = item.product?.name || item.name;
       const quantity = item.quantity || 1;
       const price = item.product?.price || item.price || 0;
+      
+      console.log(`[Checkout] Processing order item: ${productName}, quantity: ${quantity}, item:`, item);
 
       // Get cost price and compare price from product or variant at time of sale
       let costPrice = null;
@@ -455,6 +457,13 @@ export async function processCheckout(formData: FormData) {
               const currentWeightQuantity = parseFloat(currentInventory.weightQuantity || '0');
               const currentReservedWeight = parseFloat(currentInventory.reservedWeight || '0');
               const requestedWeight = quantity; // For weight-based products, quantity represents grams
+              
+              console.log(`[Checkout] Weight-based deduction for ${productName}:`, {
+                quantity,
+                requestedWeight,
+                currentWeightQuantity,
+                variantId
+              });
               
               const newWeightQuantity = currentWeightQuantity - requestedWeight;
               const newAvailableWeight = newWeightQuantity - currentReservedWeight;
