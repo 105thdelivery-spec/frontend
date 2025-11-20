@@ -258,7 +258,7 @@ export default function ProductDetails() {
     // For quantity-based products: quantity=count
     if (isWeightBased) {
       console.log(`→ Calling addToCartWithToast(product, 1, ${effectiveWeight})`);
-      alert(`🛒 ADDING TO CART:\n\nProduct: ${productName}\nQuantity: 1\nnumericValue: ${effectiveWeight}g\n\nThis ${effectiveWeight}g should be deducted from stock!`);
+      alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}g\n\nThis ${effectiveWeight}g should be deducted from stock!`);
       addToCartWithToast(productForCart, 1, effectiveWeight);
     } else {
       console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
