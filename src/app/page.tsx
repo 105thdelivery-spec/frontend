@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
@@ -29,6 +29,10 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToCartWithToast, state } = useCart();
+  
+  // Cache for products by category
+  const productCache = useRef<Map<string, Product[]>>(new Map());
+  const categoriesFetched = useRef(false);
 
   // Check if user is a driver (define this early to use in hooks)
   const isDriver = session?.user?.userType === 'driver';
@@ -53,8 +57,9 @@ export default function Home() {
 
   // Fetch categories on component mount (only for non-driver users)
   useEffect(() => {
-    if (!isDriver && session) {
+    if (!isDriver && session && !categoriesFetched.current) {
       fetchCategories();
+      categoriesFetched.current = true;
     }
   }, [isDriver, session]);
 
@@ -97,6 +102,14 @@ export default function Home() {
   };
 
   const fetchProducts = async () => {
+    // Check cache first
+    const cached = productCache.current.get(selectedCategory);
+    if (cached) {
+      setProducts(cached);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const url = selectedCategory === 'all' 
@@ -108,6 +121,8 @@ export default function Home() {
         const result = await response.json();
         if (result.success) {
           setProducts(result.data);
+          // Cache the results
+          productCache.current.set(selectedCategory, result.data);
         }
       }
     } catch (error) {
@@ -117,8 +132,11 @@ export default function Home() {
     }
   };
 
-  const handleAddToCart = (product: Product, quantity: number) => {
-    addToCartWithToast(product, quantity);
+  const handleAddToCart = async (product: Product, quantity: number) => {
+    await addToCartWithToast(product, quantity);
+    // Clear cache to ensure fresh data on next category switch
+    // This ensures stock levels are updated
+    productCache.current.clear();
   };
 
   return (
