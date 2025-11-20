@@ -28,6 +28,7 @@ export interface Product {
 export interface CartItem {
   product: Product;
   quantity: number;
+  numericValue?: number; // For weight-based products: the actual weight in grams (e.g., 100, 250, 500)
 }
 
 export interface Order {

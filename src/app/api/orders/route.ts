@@ -297,9 +297,10 @@ export async function POST(req: NextRequest) {
       const productId = item.product?.id || item.id;
       const productName = item.product?.name || item.name;
       const quantity = item.quantity || 1;
+      const numericValue = item.numericValue; // Weight in grams for weight-based products
       const price = item.product?.price || item.price || 0;
       
-      console.log(`Processing order item: ${productName}, quantity: ${quantity}, item:`, item);
+      console.log(`Processing order item: ${productName}, quantity: ${quantity}, numericValue: ${numericValue}, item:`, item);
 
       // Get cost price and compare price from product or variant at time of sale
       let costPrice = null;
@@ -432,10 +433,13 @@ export async function POST(req: NextRequest) {
               // Handle weight-based stock deduction
               const currentWeightQuantity = parseFloat(currentInventory.weightQuantity || '0');
               const currentReservedWeight = parseFloat(currentInventory.reservedWeight || '0');
-              const requestedWeight = quantity; // For weight-based products, quantity represents grams
+              // Use numericValue for weight-based products (e.g., 100g, 250g, 500g)
+              // If numericValue is not available, fall back to quantity * some default
+              const requestedWeight = numericValue || quantity;
               
               console.log(`Weight-based deduction for ${productName}:`, {
                 quantity,
+                numericValue,
                 requestedWeight,
                 currentWeightQuantity,
                 variantId

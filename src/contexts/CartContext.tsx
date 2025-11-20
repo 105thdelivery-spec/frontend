@@ -11,7 +11,7 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_TO_CART'; payload: { product: Product; quantity: number } }
+  | { type: 'ADD_TO_CART'; payload: { product: Product; quantity: number; numericValue?: number } }
   | { type: 'REMOVE_FROM_CART'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
@@ -20,7 +20,7 @@ type CartAction =
 
 interface CartContextType {
   state: CartState;
-  addToCart: (product: Product, quantity: number) => void;
+  addToCart: (product: Product, quantity: number, numericValue?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -41,18 +41,22 @@ const calculateItemCount = (items: CartItem[]): number => {
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_TO_CART': {
-      const { product, quantity } = action.payload;
-      const existingItem = state.items.find(item => item.product.id === product.id);
+      const { product, quantity, numericValue } = action.payload;
+      const existingItem = state.items.find(item => 
+        item.product.id === product.id && 
+        (!product.variantId || item.product.variantId === product.variantId)
+      );
       
       let newItems: CartItem[];
       if (existingItem) {
         newItems = state.items.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
+          item.product.id === product.id && 
+          (!product.variantId || item.product.variantId === product.variantId)
+            ? { ...item, quantity: item.quantity + quantity, numericValue: numericValue || item.numericValue }
             : item
         );
       } else {
-        newItems = [...state.items, { product, quantity }];
+        newItems = [...state.items, { product, quantity, numericValue }];
       }
       
       return {
@@ -163,8 +167,8 @@ export function CartProvider({ children }: CartProviderProps) {
     localStorage.setItem('cart', JSON.stringify(state.items));
   }, [state.items]);
 
-  const addToCart = (product: Product, quantity: number) => {
-    dispatch({ type: 'ADD_TO_CART', payload: { product, quantity } });
+  const addToCart = (product: Product, quantity: number, numericValue?: number) => {
+    dispatch({ type: 'ADD_TO_CART', payload: { product, quantity, numericValue } });
   };
 
   const removeFromCart = (productId: string) => {

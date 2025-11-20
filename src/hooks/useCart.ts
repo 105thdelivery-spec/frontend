@@ -58,24 +58,26 @@ export function useCart() {
         (!product.variantId || item.product.variantId === product.variantId)
       );
       const currentQuantityInCart = existingItem?.quantity || 0;
+      const currentWeightInCart = existingItem?.numericValue || 0;
 
       if (isWeightBased) {
-        // For weight-based products
-        const totalRequestedWeight = currentQuantityInCart + (weightInGrams || quantity);
+        // For weight-based products, check against the total weight (numericValue)
+        const requestedWeight = weightInGrams || quantity;
+        const totalRequestedWeight = (currentQuantityInCart * currentWeightInCart) + requestedWeight;
         
         if (result.stockManagementEnabled && totalRequestedWeight > result.availableWeight) {
-          const canAdd = result.availableWeight - currentQuantityInCart;
+          const canAdd = result.availableWeight - (currentQuantityInCart * currentWeightInCart);
           if (canAdd > 0) {
             toast({
               title: "Limited stock",
-              description: `Only ${canAdd.toFixed(0)}g more can be added (${result.availableWeight.toFixed(0)}g total available, ${currentQuantityInCart.toFixed(0)}g already in cart)`,
+              description: `Only ${canAdd.toFixed(0)}g more can be added (${result.availableWeight.toFixed(0)}g total available, ${(currentQuantityInCart * currentWeightInCart).toFixed(0)}g already in cart)`,
               variant: "destructive",
               duration: 4000,
             });
           } else {
             toast({
               title: "Already at maximum",
-              description: `You already have the maximum available weight (${currentQuantityInCart.toFixed(0)}g) in your cart`,
+              description: `You already have the maximum available weight (${(currentQuantityInCart * currentWeightInCart).toFixed(0)}g) in your cart`,
               variant: "destructive",
               duration: 3000,
             });
@@ -107,8 +109,15 @@ export function useCart() {
         }
       }
 
-      // Add to cart (for weight-based, quantity represents grams)
-      cart.addToCart(product, weightInGrams || quantity);
+      // Add to cart
+      // For weight-based: quantity=1 (unit count), numericValue=weight in grams
+      // For quantity-based: quantity=count, numericValue=undefined
+      if (isWeightBased) {
+        cart.addToCart(product, quantity, weightInGrams);
+        console.log(`Added to cart: quantity=${quantity}, numericValue=${weightInGrams}g`);
+      } else {
+        cart.addToCart(product, quantity);
+      }
       
       const itemDescription = isWeightBased
         ? `${(weightInGrams || quantity).toFixed(0)}g of ${product.name}`

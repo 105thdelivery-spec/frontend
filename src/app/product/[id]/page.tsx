@@ -238,10 +238,11 @@ export default function ProductDetails() {
       }),
     };
 
-    // For weight-based products, use effectiveWeight (from numericValue or quantity input)
-    // For quantity-based products, quantity is unit count
+    // For weight-based products: quantity=1 (unit count), weightInGrams=effectiveWeight
+    // For quantity-based products: quantity=count
     if (isWeightBased) {
-      addToCartWithToast(productForCart, effectiveWeight, effectiveWeight);
+      addToCartWithToast(productForCart, 1, effectiveWeight);
+      console.log(`Adding weight-based product: quantity=1, weight=${effectiveWeight}g`);
     } else {
       addToCartWithToast(productForCart, quantity);
     }
