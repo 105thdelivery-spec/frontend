@@ -17,7 +17,6 @@ export function UserAvatar({ initials, name, email }: UserAvatarProps) {
       <div>
         <h2 className="text-xl font-bold">{name}</h2>
         <p className="text-muted-foreground">{email}</p>
-        <p className="text-sm text-muted-foreground">Member since Jan 2024</p>
       </div>
     </div>
   );
