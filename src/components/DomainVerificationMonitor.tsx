@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 
 interface DomainVerificationMonitorProps {
   children: React.ReactNode;
-  checkInterval?: number; // in milliseconds, default 30 seconds
+  checkInterval?: number; // in milliseconds, default 24 hours
   skipCheck?: boolean; // skip domain verification entirely
 }
 
@@ -19,10 +19,10 @@ interface DomainCheckResult {
   error?: string;
 }
 
-export default function DomainVerificationMonitor({ 
-  children, 
-  checkInterval = 30000, // 30 seconds
-  skipCheck = false 
+export default function DomainVerificationMonitor({
+  children,
+  checkInterval = 86400000, // 24 hours (86400000ms)
+  skipCheck = false
 }: DomainVerificationMonitorProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -36,10 +36,10 @@ export default function DomainVerificationMonitor({
   // Pages where domain verification should be skipped
   const shouldSkipDomainCheck = (): boolean => {
     if (skipCheck) return true;
-    
+
     // Check both pathname and window.location for robustness
     const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
-    
+
     const exemptRoutes = [
       '/test-admin-connection',
       '/debug/',
@@ -47,21 +47,37 @@ export default function DomainVerificationMonitor({
       '/license-invalid',
       '/logout'
     ];
-    
+
     return exemptRoutes.some(route => currentPath.startsWith(route));
   };
 
   const performDomainCheck = async (): Promise<void> => {
     // Prevent multiple simultaneous checks
     if (isCheckingRef.current) return;
-    
+
+    // Check if we need to perform the check based on last check time
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const lastSuccessfulCheck = localStorage.getItem('domain_last_check');
+
+    if (lastSuccessfulCheck) {
+      const lastCheckTime = parseInt(lastSuccessfulCheck, 10);
+      const timeSinceLastCheck = Date.now() - lastCheckTime;
+
+      if (timeSinceLastCheck < TWENTY_FOUR_HOURS) {
+        console.log('Domain verification: Skipping check - last successful check was',
+          Math.round(timeSinceLastCheck / 1000 / 60), 'minutes ago');
+        setDomainStatus('valid');
+        return;
+      }
+    }
+
     try {
       isCheckingRef.current = true;
       const currentDomain = window.location.hostname;
-      
-      console.log('Domain verification check:', { 
-        domain: currentDomain, 
-        timestamp: new Date().toISOString() 
+
+      console.log('Domain verification check:', {
+        domain: currentDomain,
+        timestamp: new Date().toISOString()
       });
 
       const response = await fetch('/api/debug/check-domain', {
@@ -79,81 +95,86 @@ export default function DomainVerificationMonitor({
 
       if (result.success && result.result?.exists && result.result.client) {
         const client = result.result.client;
-        
+
         // Check client status
         if (client.status !== 'active') {
           console.error('Domain verification: FAILED - Client status is not active:', client.status);
           setDomainStatus('invalid');
-          
+
           // Clear cached license data
           localStorage.removeItem('saas_license_status');
+          localStorage.removeItem('domain_last_check');
           sessionStorage.removeItem('saas_license_status');
           document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          
+
           // Redirect with status error
           router.push(`/license-setup?error=client_status&status=${client.status}`);
           return;
         }
-        
+
         // Check subscription status
         if (client.subscriptionStatus !== 'active') {
           console.error('Domain verification: FAILED - Subscription status is not active:', client.subscriptionStatus);
           setDomainStatus('invalid');
-          
+
           // Clear cached license data
           localStorage.removeItem('saas_license_status');
+          localStorage.removeItem('domain_last_check');
           sessionStorage.removeItem('saas_license_status');
           document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-          
+
           // Redirect with subscription status error
           router.push(`/license-setup?error=subscription_status&status=${client.subscriptionStatus}`);
           return;
         }
-        
+
         // Check subscription expiry date
         if (client.subscriptionEndDate) {
           const expiryDate = new Date(client.subscriptionEndDate);
           const now = new Date();
-          
+
           if (now > expiryDate) {
             console.error('Domain verification: FAILED - Subscription expired:', client.subscriptionEndDate);
             setDomainStatus('invalid');
-            
+
             // Clear cached license data
             localStorage.removeItem('saas_license_status');
+            localStorage.removeItem('domain_last_check');
             sessionStorage.removeItem('saas_license_status');
             document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-            
+
             // Redirect with subscription expired error
             router.push(`/license-setup?error=subscription_expired&expiry=${client.subscriptionEndDate}`);
             return;
           }
         }
-        
-        // All checks passed
+
+        // All checks passed - store the successful check time
         console.log('Domain verification: PASSED - All checks successful', {
           domain: result.result.domain,
           status: client.status,
           subscriptionStatus: client.subscriptionStatus,
           subscriptionEndDate: client.subscriptionEndDate
         });
+        localStorage.setItem('domain_last_check', Date.now().toString());
         setDomainStatus('valid');
       } else {
         console.error('Domain verification: FAILED - Domain not found in admin database', result);
         setDomainStatus('invalid');
-        
+
         // Clear any cached license data since domain is not registered
         localStorage.removeItem('saas_license_status');
+        localStorage.removeItem('domain_last_check');
         sessionStorage.removeItem('saas_license_status');
         document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-        
+
         // Redirect to license setup with domain error
         router.push('/license-setup?error=domain_not_found');
       }
     } catch (error) {
       console.error('Domain verification check failed:', error);
       setDomainStatus('error');
-      
+
       // On network error, don't immediately redirect - could be temporary
       // But log the issue for monitoring
       console.warn('Domain verification network error - continuing with current session');
@@ -166,13 +187,13 @@ export default function DomainVerificationMonitor({
   useEffect(() => {
     const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
     const skipCheck = shouldSkipDomainCheck();
-    
-    console.log('DomainVerificationMonitor: Initializing', { 
-      currentPath, 
-      skipCheck, 
-      isServer: typeof window === 'undefined' 
+
+    console.log('DomainVerificationMonitor: Initializing', {
+      currentPath,
+      skipCheck,
+      isServer: typeof window === 'undefined'
     });
-    
+
     if (skipCheck || typeof window === 'undefined') {
       console.log('DomainVerificationMonitor: Skipping domain check for', currentPath);
       setIsInitialized(true);
@@ -194,7 +215,7 @@ export default function DomainVerificationMonitor({
     };
 
     initializeDomainCheck();
-    
+
     // Fallback timeout to prevent infinite loading
     timeoutRef.current = setTimeout(() => {
       if (!isInitialized) {
@@ -203,7 +224,7 @@ export default function DomainVerificationMonitor({
         setDomainStatus('error');
       }
     }, 10000); // 10 second timeout
-    
+
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -246,7 +267,7 @@ export default function DomainVerificationMonitor({
   //   };
 
   //   document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
   //   return () => {
   //     document.removeEventListener('visibilitychange', handleVisibilityChange);
   //   };
