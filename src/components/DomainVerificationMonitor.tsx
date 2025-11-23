@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 
 interface DomainVerificationMonitorProps {
   children: React.ReactNode;
-  checkInterval?: number; // in milliseconds, default 24 hours
+  checkInterval?: number; // in milliseconds, default 30 days
   skipCheck?: boolean; // skip domain verification entirely
 }
 
@@ -15,13 +15,15 @@ interface DomainCheckResult {
     exists: boolean;
     domain?: string;
     client?: any;
+    cached?: boolean;
+    lastVerifiedAt?: string;
   };
   error?: string;
 }
 
 export default function DomainVerificationMonitor({
   children,
-  checkInterval = 86400000, // 24 hours (86400000ms)
+  checkInterval = 2592000000, // 30 days (2592000000ms = 30 * 24 * 60 * 60 * 1000)
   skipCheck = false
 }: DomainVerificationMonitorProps) {
   const router = useRouter();
@@ -55,22 +57,6 @@ export default function DomainVerificationMonitor({
     // Prevent multiple simultaneous checks
     if (isCheckingRef.current) return;
 
-    // Check if we need to perform the check based on last check time
-    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    const lastSuccessfulCheck = localStorage.getItem('domain_last_check');
-
-    if (lastSuccessfulCheck) {
-      const lastCheckTime = parseInt(lastSuccessfulCheck, 10);
-      const timeSinceLastCheck = Date.now() - lastCheckTime;
-
-      if (timeSinceLastCheck < TWENTY_FOUR_HOURS) {
-        console.log('Domain verification: Skipping check - last successful check was',
-          Math.round(timeSinceLastCheck / 1000 / 60), 'minutes ago');
-        setDomainStatus('valid');
-        return;
-      }
-    }
-
     try {
       isCheckingRef.current = true;
       const currentDomain = window.location.hostname;
@@ -103,7 +89,6 @@ export default function DomainVerificationMonitor({
 
           // Clear cached license data
           localStorage.removeItem('saas_license_status');
-          localStorage.removeItem('domain_last_check');
           sessionStorage.removeItem('saas_license_status');
           document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
 
@@ -119,7 +104,6 @@ export default function DomainVerificationMonitor({
 
           // Clear cached license data
           localStorage.removeItem('saas_license_status');
-          localStorage.removeItem('domain_last_check');
           sessionStorage.removeItem('saas_license_status');
           document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
 
@@ -139,7 +123,6 @@ export default function DomainVerificationMonitor({
 
             // Clear cached license data
             localStorage.removeItem('saas_license_status');
-            localStorage.removeItem('domain_last_check');
             sessionStorage.removeItem('saas_license_status');
             document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
 
@@ -149,14 +132,14 @@ export default function DomainVerificationMonitor({
           }
         }
 
-        // All checks passed - store the successful check time
+        // All checks passed
         console.log('Domain verification: PASSED - All checks successful', {
           domain: result.result.domain,
           status: client.status,
           subscriptionStatus: client.subscriptionStatus,
-          subscriptionEndDate: client.subscriptionEndDate
+          subscriptionEndDate: client.subscriptionEndDate,
+          cached: result.result.cached || false,
         });
-        localStorage.setItem('domain_last_check', Date.now().toString());
         setDomainStatus('valid');
       } else {
         console.error('Domain verification: FAILED - Domain not found in admin database', result);
@@ -164,7 +147,6 @@ export default function DomainVerificationMonitor({
 
         // Clear any cached license data since domain is not registered
         localStorage.removeItem('saas_license_status');
-        localStorage.removeItem('domain_last_check');
         sessionStorage.removeItem('saas_license_status');
         document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
 
@@ -201,7 +183,8 @@ export default function DomainVerificationMonitor({
       return;
     }
 
-    // Perform initial domain check
+
+    // Perform domain check (API will handle caching)
     const initializeDomainCheck = async () => {
       try {
         await performDomainCheck();

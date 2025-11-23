@@ -168,23 +168,23 @@ export const products = mysqlTable("products", {
   metaTitle: varchar("meta_title", { length: 255 }),
   metaDescription: text("meta_description"),
 
-  
+
   // Variable Product Fields
   productType: varchar("product_type", { length: 50 }).default("simple"), // 'simple' or 'variable'
   variationAttributes: json("variation_attributes"), // Array of {name: string, values: string[]}
-  
+
   // Stock Management Fields
   stockManagementType: varchar("stock_management_type", { length: 20 }).default("quantity"), // 'quantity' or 'weight'
   pricePerUnit: decimal("price_per_unit", { precision: 10, scale: 2 }), // Price per gram for weight-based products
   baseWeightUnit: varchar("base_weight_unit", { length: 10 }).default("grams"), // 'grams' or 'kg'
-  
+
   // Cannabis-specific fields
   thc: decimal("thc", { precision: 5, scale: 2 }), // THC percentage (0.00 - 100.00)
   cbd: decimal("cbd", { precision: 5, scale: 2 }), // CBD percentage (0.00 - 100.00)
   difficulty: varchar("difficulty", { length: 50 }), // Growing difficulty level
   floweringTime: varchar("flowering_time", { length: 100 }), // Time to flower
   yieldAmount: varchar("yield_amount", { length: 100 }), // Expected yield
-  
+
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -284,21 +284,21 @@ export const productInventory = mysqlTable("product_inventory", {
   id: varchar("id", { length: 255 }).primaryKey(),
   productId: varchar("product_id", { length: 255 }),
   variantId: varchar("variant_id", { length: 255 }),
-  
+
   // Quantity-based inventory fields
   quantity: int("quantity").notNull().default(0),
   reservedQuantity: int("reserved_quantity").default(0),
   availableQuantity: int("available_quantity").default(0),
   reorderPoint: int("reorder_point").default(0),
   reorderQuantity: int("reorder_quantity").default(0),
-  
+
   // Weight-based inventory fields (stored in grams for consistency)
   weightQuantity: decimal("weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // Total weight in grams
   reservedWeight: decimal("reserved_weight", { precision: 12, scale: 2 }).default('0.00'), // Reserved weight in grams
   availableWeight: decimal("available_weight", { precision: 12, scale: 2 }).default('0.00'), // Available weight in grams
   reorderWeightPoint: decimal("reorder_weight_point", { precision: 12, scale: 2 }).default('0.00'), // Reorder point in grams
   reorderWeightQuantity: decimal("reorder_weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // Reorder quantity in grams
-  
+
   location: varchar("location", { length: 255 }),
   supplier: varchar("supplier", { length: 255 }),
   lastRestockDate: datetime("last_restock_date"),
@@ -313,17 +313,17 @@ export const stockMovements = mysqlTable("stock_movements", {
   productId: varchar("product_id", { length: 255 }).notNull(),
   variantId: varchar("variant_id", { length: 255 }),
   movementType: varchar("movement_type", { length: 50 }).notNull(), // 'in', 'out', 'adjustment'
-  
+
   // Quantity-based movement fields
   quantity: int("quantity").notNull().default(0),
   previousQuantity: int("previous_quantity").notNull().default(0),
   newQuantity: int("new_quantity").notNull().default(0),
-  
+
   // Weight-based movement fields (stored in grams)
   weightQuantity: decimal("weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // Weight moved in grams
   previousWeightQuantity: decimal("previous_weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // Previous weight in grams
   newWeightQuantity: decimal("new_weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // New weight in grams
-  
+
   reason: varchar("reason", { length: 255 }).notNull(),
   location: varchar("location", { length: 255 }),
   reference: varchar("reference", { length: 255 }), // PO number, invoice, etc.
@@ -350,7 +350,7 @@ export const orders = mysqlTable("orders", {
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default('0.00'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 3 }).default("USD"),
-  
+
   deliveryTime: varchar("delivery_time", { length: 255 }),
   // Billing Address
   billingFirstName: varchar("billing_first_name", { length: 100 }),
@@ -361,7 +361,7 @@ export const orders = mysqlTable("orders", {
   billingState: varchar("billing_state", { length: 100 }),
   billingPostalCode: varchar("billing_postal_code", { length: 20 }),
   billingCountry: varchar("billing_country", { length: 100 }),
-  
+
   // Shipping Address
   shippingFirstName: varchar("shipping_first_name", { length: 100 }),
   shippingLastName: varchar("shipping_last_name", { length: 100 }),
@@ -373,29 +373,29 @@ export const orders = mysqlTable("orders", {
   shippingCountry: varchar("shipping_country", { length: 100 }),
   shippingLatitude: decimal("shipping_latitude", { precision: 10, scale: 8 }),
   shippingLongitude: decimal("shipping_longitude", { precision: 11, scale: 8 }),
-  
+
   shippingMethod: varchar("shipping_method", { length: 100 }),
   trackingNumber: varchar("tracking_number", { length: 255 }),
   notes: text("notes"),
   deliveryInstructions: text("delivery_instructions"),
   cancelReason: text("cancel_reason"),
-  
+
   // Service scheduling fields
   serviceDate: varchar("service_date", { length: 10 }), // YYYY-MM-DD format
   serviceTime: varchar("service_time", { length: 8 }), // HH:MM format
-  
+
   // Order type and pickup location fields
   orderType: varchar("order_type", { length: 20 }).default("delivery"), // delivery, pickup, shipping
   pickupLocationId: varchar("pickup_location_id", { length: 255 }), // Reference to pickup_locations
-  
+
   // Driver assignment fields
   assignedDriverId: varchar("assigned_driver_id", { length: 255 }), // Current assigned driver
   deliveryStatus: varchar("delivery_status", { length: 30 }).default("pending"), // pending, assigned, out_for_delivery, delivered, failed
-  
+
   // Loyalty points fields
   pointsToRedeem: int("points_to_redeem").default(0), // Points redeemed for this order
   pointsDiscountAmount: decimal("points_discount_amount", { precision: 10, scale: 2 }).default('0.00'), // Discount amount from points
-  
+
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -409,14 +409,14 @@ export const orderItems = mysqlTable("order_items", {
   productName: varchar("product_name", { length: 255 }).notNull(),
   variantTitle: varchar("variant_title", { length: 255 }),
   sku: varchar("sku", { length: 100 }),
-  
+
   // Quantity-based order fields
   quantity: int("quantity").notNull().default(0),
-  
+
   // Weight-based order fields (stored in grams)
   weightQuantity: decimal("weight_quantity", { precision: 12, scale: 2 }).default('0.00'), // Ordered weight in grams
   weightUnit: varchar("weight_unit", { length: 10 }), // Display unit (grams, kg)
-  
+
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   costPrice: decimal("cost_price", { precision: 10, scale: 2 }), // Cost price at time of sale
   comparePrice: decimal("compare_price", { precision: 10, scale: 2 }), // Compare price at time of sale
@@ -541,7 +541,7 @@ export const drivers = mysqlTable("drivers", {
   vehicleYear: int("vehicle_year"),
   vehiclePlateNumber: varchar("vehicle_plate_number", { length: 50 }).notNull(),
   vehicleColor: varchar("vehicle_color", { length: 50 }),
-  
+
   // Location fields
   baseLocation: varchar("base_location", { length: 255 }).notNull(), // Fixed base location address
   baseLatitude: decimal("base_latitude", { precision: 10, scale: 8 }), // GPS coordinates
@@ -549,17 +549,17 @@ export const drivers = mysqlTable("drivers", {
   currentLatitude: decimal("current_latitude", { precision: 10, scale: 8 }), // Current location
   currentLongitude: decimal("current_longitude", { precision: 11, scale: 8 }),
   currentAddress: varchar("current_address", { length: 500 }), // Current location address
-  
+
   // Status and availability
   status: varchar("status", { length: 20 }).default("offline"), // available, busy, offline
   isActive: boolean("is_active").default(true),
   maxDeliveryRadius: int("max_delivery_radius").default(50), // in kilometers
-  
+
   // Additional info
   emergencyContact: varchar("emergency_contact", { length: 20 }),
   emergencyContactName: varchar("emergency_contact_name", { length: 255 }),
   dateOfJoining: datetime("date_of_joining").default(sql`CURRENT_TIMESTAMP`),
-  
+
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
@@ -571,26 +571,26 @@ export const driverAssignments = mysqlTable("driver_assignments", {
   driverId: varchar("driver_id", { length: 255 }).notNull(),
   assignedBy: varchar("assigned_by", { length: 255 }).notNull(), // Admin user who assigned
   assignedAt: datetime("assigned_at").default(sql`CURRENT_TIMESTAMP`),
-  
+
   // Assignment details
   assignmentType: varchar("assignment_type", { length: 20 }).default("manual"), // manual, automatic
   estimatedDistance: decimal("estimated_distance", { precision: 8, scale: 2 }), // in kilometers
   estimatedDuration: int("estimated_duration"), // in minutes
   priority: varchar("priority", { length: 20 }).default("normal"), // low, normal, high, urgent
-  
+
   // Delivery status tracking
   deliveryStatus: varchar("delivery_status", { length: 30 }).default("assigned"), // assigned, out_for_delivery, delivered, failed
   pickedUpAt: datetime("picked_up_at"),
   outForDeliveryAt: datetime("out_for_delivery_at"),
   deliveredAt: datetime("delivered_at"),
   failedAt: datetime("failed_at"),
-  
+
   // Delivery details
   deliveryNotes: text("delivery_notes"),
   deliveryProof: varchar("delivery_proof", { length: 500 }), // Image URL for delivery proof
   customerSignature: varchar("customer_signature", { length: 500 }), // Signature image URL
   failureReason: text("failure_reason"),
-  
+
   isActive: boolean("is_active").default(true), // For tracking reassignments
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
@@ -601,16 +601,16 @@ export const driverAssignmentHistory = mysqlTable("driver_assignment_history", {
   id: varchar("id", { length: 255 }).primaryKey(),
   orderId: varchar("order_id", { length: 255 }).notNull(),
   assignmentId: varchar("assignment_id", { length: 255 }), // Reference to current assignment
-  
+
   // Previous assignment details
   previousDriverId: varchar("previous_driver_id", { length: 255 }),
   newDriverId: varchar("new_driver_id", { length: 255 }),
-  
+
   // Change details
   changeType: varchar("change_type", { length: 30 }).notNull(), // assigned, reassigned, unassigned
   changeReason: text("change_reason"),
   changedBy: varchar("changed_by", { length: 255 }).notNull(), // Admin user who made the change
-  
+
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -622,6 +622,21 @@ export const settings = mysqlTable("settings", {
   type: varchar("type", { length: 50 }).default("string"), // string, boolean, number, json
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ✅ Domain Verification (stores domain verification status)
+export const domainVerification = mysqlTable("domain_verification", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  domain: varchar("domain", { length: 255 }).notNull().unique(), // e.g., 'www.105thdelivery.com'
+  lastVerifiedAt: datetime("last_verified_at").notNull(), // Last successful verification timestamp
+  verificationStatus: varchar("verification_status", { length: 50 }).default("valid"), // valid, invalid, pending
+  clientStatus: varchar("client_status", { length: 50 }), // active, inactive, suspended
+  subscriptionStatus: varchar("subscription_status", { length: 50 }), // active, expired, cancelled
+  subscriptionEndDate: datetime("subscription_end_date"),
+  verifiedBy: varchar("verified_by", { length: 255 }), // User ID who triggered the verification
+  metadata: json("metadata"), // Additional verification data
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
