@@ -28,8 +28,8 @@ export default function DomainVerificationMonitor({
 }: DomainVerificationMonitorProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [domainStatus, setDomainStatus] = useState<'checking' | 'valid' | 'invalid' | 'error'>('checking');
+  const [isInitialized, setIsInitialized] = useState(true); // Start initialized to not block UI
+  const [domainStatus, setDomainStatus] = useState<'checking' | 'valid' | 'invalid' | 'error'>('valid'); // Start valid (optimistic)
   const [lastCheckTime, setLastCheckTime] = useState<number>(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isCheckingRef = useRef(false);
@@ -60,6 +60,24 @@ export default function DomainVerificationMonitor({
     try {
       isCheckingRef.current = true;
       const currentDomain = window.location.hostname;
+
+      // Check cache first
+      const cached = localStorage.getItem('domain_verification_cache');
+      if (cached) {
+        try {
+          const { timestamp, domain, status } = JSON.parse(cached);
+          const now = Date.now();
+
+          // If cached within interval (30 days) and domain matches and status is valid
+          if (now - timestamp < checkInterval && domain === currentDomain && status === 'valid') {
+            console.log('Using cached domain verification');
+            setDomainStatus('valid');
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing domain cache', e);
+        }
+      }
 
       console.log('Domain verification check:', {
         domain: currentDomain,
@@ -140,7 +158,15 @@ export default function DomainVerificationMonitor({
           subscriptionEndDate: client.subscriptionEndDate,
           cached: result.result.cached || false,
         });
+
         setDomainStatus('valid');
+
+        // Cache the successful result
+        localStorage.setItem('domain_verification_cache', JSON.stringify({
+          timestamp: Date.now(),
+          domain: currentDomain,
+          status: 'valid'
+        }));
       } else {
         console.error('Domain verification: FAILED - Domain not found in admin database', result);
         setDomainStatus('invalid');
@@ -148,6 +174,7 @@ export default function DomainVerificationMonitor({
         // Clear any cached license data since domain is not registered
         localStorage.removeItem('saas_license_status');
         sessionStorage.removeItem('saas_license_status');
+        localStorage.removeItem('domain_verification_cache'); // Clear domain cache
         document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
 
         // Redirect to license setup with domain error
@@ -256,20 +283,7 @@ export default function DomainVerificationMonitor({
   //   };
   // }, [checkInterval, pathname, isInitialized, lastCheckTime]);
 
-  // Show loading state during initial domain verification
-  if (!isInitialized && !shouldSkipDomainCheck()) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verifying domain registration...</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Checking if {typeof window !== 'undefined' ? window.location.hostname : 'domain'} is registered
-          </p>
-        </div>
-      </div>
-    );
-  }
+
 
   // Only render children if domain verification passed or is skipped
   if (shouldSkipDomainCheck() || domainStatus === 'valid' || domainStatus === 'error') {
