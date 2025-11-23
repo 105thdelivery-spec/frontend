@@ -11,7 +11,7 @@ export function LogoutButton() {
   const handleLogout = async () => {
     try {
       // Use signOut with redirect to ensure proper logout
-      await signOut({ 
+      await signOut({
         callbackUrl: '/register',
         redirect: true
       });
@@ -23,9 +23,9 @@ export function LogoutButton() {
   };
 
   return (
-    <Button 
-      variant="outline" 
-      className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+    <Button
+      variant="outline"
+      className="w-full justify-start gap-3 hover:bg-accent hover:text-accent-foreground"
       onClick={handleLogout}
     >
       <LogOut className="h-4 w-4" />

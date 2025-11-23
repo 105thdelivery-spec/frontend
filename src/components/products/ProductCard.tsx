@@ -30,20 +30,22 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const handleAddToCart = () => {
     onAddToCart(product, quantity);
     setQuantity(1);
+    // Redirect to cart page
+    router.push('/cart');
   };
 
   // Determine if weight-based or quantity-based
   const isWeightBased = product.stockManagementType === 'weight';
-  
+
   // Get max quantity/weight based on available stock
   const maxQuantity = isWeightBased
-    ? (product.availableWeight !== undefined && product.availableWeight > 0 
-        ? product.availableWeight 
-        : 999)
-    : (product.availableQuantity !== undefined && product.availableQuantity > 0 
-        ? product.availableQuantity 
-        : 999);
-  
+    ? (product.availableWeight !== undefined && product.availableWeight > 0
+      ? product.availableWeight
+      : 999)
+    : (product.availableQuantity !== undefined && product.availableQuantity > 0
+      ? product.availableQuantity
+      : 999);
+
   // Check if out of stock
   const isOutOfStock = isWeightBased
     ? (product.availableWeight !== undefined && product.availableWeight === 0)
@@ -60,7 +62,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
   return (
     <Card className="overflow-hidden hover:shadow-card transition-all duration-300 hover:scale-[1.02] bg-gradient-card">
-      <div 
+      <div
         className="aspect-square relative overflow-hidden cursor-pointer"
         onClick={() => router.push(`/product/${product.id}`)}
       >
@@ -91,13 +93,13 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             <Badge variant="destructive">Out of Stock</Badge>
           </div>
         )}
-        <Badge 
+        <Badge
           className="absolute top-2 right-2 bg-blue-100 text-blue-800"
         >
           {product.category}
         </Badge>
       </div>
-      
+
       <CardContent className="p-4">
         <div className="space-y-3">
           <div>
@@ -114,7 +116,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
+          <div className="">
             <div>
               <div className="text-2xl font-bold text-primary">
                 {product.isVariableProduct && product.minPrice && product.maxPrice ? (
@@ -131,15 +133,15 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                 <div className="text-xs text-muted-foreground">Price varies by option</div>
               )}
             </div>
-            
+
             {product.inStock && (
-              <div className="flex flex-col gap-2 w-full">
+              <div className="flex flex-col gap-2 w-full ">
                 {/* Show available stock if defined */}
                 {(product.availableQuantity !== undefined || product.availableWeight !== undefined) && (
-                  <div className="text-xs text-center">
+                  <div className="text-xs text-center hidden">
                     {!isOutOfStock ? (
                       <span className="text-muted-foreground">
-                        {isWeightBased 
+                        {isWeightBased
                           ? `${product.availableWeight?.toFixed(0)}${weightLabel} available`
                           : `${product.availableQuantity} available`
                         }
@@ -149,34 +151,15 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                     )}
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2">
                   {/* Hide quantity selector and add to cart for variable products */}
                   {!product.isVariableProduct && (
                     <>
-                      <div className="flex items-center border rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="px-3 py-1 text-sm font-medium">{quantity}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
-                          disabled={quantity >= maxQuantity}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <Button 
-                        size="sm" 
+
+
+                      <Button
+                        size="sm"
                         onClick={handleAddToCart}
                         className="gap-1"
                         disabled={isOutOfStock}
@@ -186,14 +169,14 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                       </Button>
                     </>
                   )}
-                
+
                   {/* Show "Select Options" button for variable products */}
                   {product.isVariableProduct && (
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => router.push(`/product/${product.id}`)}
-                      className="gap-1 w-full"
+                      className="gap-1 w-max"
                     >
                       Select Options
                     </Button>

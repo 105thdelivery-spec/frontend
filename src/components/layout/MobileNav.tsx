@@ -18,13 +18,13 @@ interface NavItem {
 const getNavItems = (userRole: string): NavItem[] => [
   { icon: Home, label: 'Shop', href: '/' },
   { icon: ShoppingCart, label: 'Cart', href: '/cart' },
-  { 
-    icon: userRole === 'driver' ? Truck : Package, 
-    label: userRole === 'driver' ? 'Delivery' : 'Orders', 
-    href: userRole === 'driver' ? '/deliveries' : '/orders' 
+  {
+    icon: userRole === 'driver' ? Truck : Package,
+    label: userRole === 'driver' ? 'Delivery' : 'Orders',
+    href: userRole === 'driver' ? '/deliveries' : '/orders'
   },
-  { icon: MessageCircle, label: 'Chat', href: '/chat' },
-  { icon: HeadphonesIcon, label: 'Support', href: '/support', role: ['customer'] },
+  //{ icon: MessageCircle, label: 'Chat', href: '/chat' },
+  //{ icon: HeadphonesIcon, label: 'Support', href: '/support', role: ['customer'] },
   { icon: User, label: 'Profile', href: '/dashboard' },
   { icon: Settings, label: 'Admin', href: '/admin', role: ['admin'] },
 ];
@@ -39,7 +39,7 @@ export function MobileNav({ userRole = 'customer' }: MobileNavProps) {
   const { isLoading } = useTheme();
 
   const navItems = getNavItems(userRole);
-  const filteredItems = navItems.filter(item => 
+  const filteredItems = navItems.filter(item =>
     !item.role || item.role.includes(userRole)
   );
 

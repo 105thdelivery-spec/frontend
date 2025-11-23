@@ -129,7 +129,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [pointsDiscountAmount, setPointsDiscountAmount] = useState(0);
   const [useAllPoints, setUseAllPoints] = useState(false);
-  
+
   // Order validation state
   const [orderValidationError, setOrderValidationError] = useState<string>('');
 
@@ -137,7 +137,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   useEffect(() => {
     const fetchPickupLocations = async () => {
       if (orderType !== 'pickup') return;
-      
+
       try {
         const response = await fetch('/api/pickup-locations');
         if (response.ok) {
@@ -165,14 +165,14 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
         const response = await fetch('/api/settings/user');
         if (response.ok) {
           const userData = await response.json();
-          
+
           // Auto-fill customer info
           setCustomerInfo({
             name: userData.name || '',
             email: userData.email || '',
             phone: userData.phone || ''
           });
-          
+
           // Auto-fill address if available
           setAddress({
             street: userData.address || '',
@@ -226,7 +226,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   };
 
   // Calculate points that will be earned from this order
-  const pointsToEarn = loyaltySettings.enabled 
+  const pointsToEarn = loyaltySettings.enabled
     ? Math.floor((loyaltySettings.earningBasis === 'total' ? total : total) * loyaltySettings.earningRate)
     : 0;
 
@@ -239,11 +239,11 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
 
     // Calculate discount amount based on points
     const discountAmount = pointsToRedeem * loyaltySettings.redemptionValue;
-    
+
     // Calculate subtotal (total - tax)
     const subtotal = total; // No tax applied
     const maxAllowedDiscount = subtotal * (loyaltySettings.maxRedemptionPercent / 100);
-    
+
     const finalDiscountAmount = Math.min(discountAmount, maxAllowedDiscount);
     const finalPointsToRedeem = Math.floor(finalDiscountAmount / loyaltySettings.redemptionValue);
 
@@ -260,7 +260,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
     } else {
       const maxPointsBasedOnPercent = Math.floor((total * loyaltySettings.maxRedemptionPercent / 100) / loyaltySettings.redemptionValue);
       const pointsToUse = Math.min(customerPoints.availablePoints, maxPointsBasedOnPercent);
-      
+
       if (pointsToUse >= loyaltySettings.redemptionMinimum) {
         setPointsToRedeem(pointsToUse);
         setPointsDiscountAmount(pointsToUse * loyaltySettings.redemptionValue);
@@ -271,7 +271,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const checkoutData: CheckoutData = {
       paymentMethod,
       orderType,
@@ -293,13 +293,13 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   const subtotal = total;
   const totalWithFees = subtotal + deliveryFee + shippingFee;
   const finalTotal = totalWithFees - pointsDiscountAmount;
-  
+
   // Validate minimum order value
   const meetsMinimumOrder = subtotal >= orderSettings.minimumOrderValue;
-  
-  const canUsePoints = loyaltySettings.enabled && 
-                       customerPoints.availablePoints >= loyaltySettings.redemptionMinimum &&
-                       total >= loyaltySettings.minimumOrder;
+
+  const canUsePoints = loyaltySettings.enabled &&
+    customerPoints.availablePoints >= loyaltySettings.redemptionMinimum &&
+    total >= loyaltySettings.minimumOrder;
 
   if (loading) {
     return (
@@ -334,7 +334,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium truncate">{item.product.name}</h4>
                 <p className="text-sm text-muted-foreground">{item.product.category}</p>
-                
+
                 {/* Show selected variant information */}
                 {item.product.selectedAttributes && Object.keys(item.product.selectedAttributes).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
@@ -345,7 +345,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
                     ))}
                   </div>
                 )}
-                
+
                 {/* Show variant SKU if available */}
                 {item.product.variantSku && (
                   <p className="text-xs text-muted-foreground mt-1">SKU: {item.product.variantSku}</p>
@@ -434,7 +434,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
 
             {!canUsePoints && customerPoints.availablePoints > 0 && (
               <div className="text-sm text-muted-foreground">
-                {customerPoints.availablePoints < loyaltySettings.redemptionMinimum 
+                {customerPoints.availablePoints < loyaltySettings.redemptionMinimum
                   ? `Need ${loyaltySettings.redemptionMinimum} points minimum to redeem`
                   : `Minimum order of $${loyaltySettings.minimumOrder} required for points redemption`
                 }
@@ -450,11 +450,11 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
           <CardTitle>Order Type</CardTitle>
           {(!deliveryStatus.enabled || !shippingStatus.enabled) && (
             <p className="text-sm text-muted-foreground mt-1">
-              {!deliveryStatus.enabled && !shippingStatus.enabled 
+              {!deliveryStatus.enabled && !shippingStatus.enabled
                 ? 'Only pickup is currently available'
-                : !deliveryStatus.enabled 
-                ? 'Delivery is currently unavailable'
-                : 'Shipping is currently unavailable'
+                : !deliveryStatus.enabled
+                  ? 'Delivery is currently unavailable'
+                  : 'Shipping is currently unavailable'
               }
             </p>
           )}
@@ -469,23 +469,20 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
               </Label>
             </div>
             {/* Delivery option - show only if enabled or show as disabled */}
-            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
-              !deliveryStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
-            }`}>
-              <RadioGroupItem 
-                value="delivery" 
-                id="delivery" 
+            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${!deliveryStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
+              }`}>
+              <RadioGroupItem
+                value="delivery"
+                id="delivery"
                 disabled={!deliveryStatus.enabled}
               />
-              <Label 
-                htmlFor="delivery" 
-                className={`flex items-center gap-2 ${
-                  !deliveryStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
-                }`}
+              <Label
+                htmlFor="delivery"
+                className={`flex items-center gap-2 ${!deliveryStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
+                  }`}
               >
-                <Truck className={`h-4 w-4 ${
-                  !deliveryStatus.enabled ? 'text-gray-400' : ''
-                }`} />
+                <Truck className={`h-4 w-4 ${!deliveryStatus.enabled ? 'text-gray-400' : ''
+                  }`} />
                 Delivery
                 {!deliveryStatus.enabled && (
                   <span className="text-xs text-red-500 ml-1 font-medium">(Disabled)</span>
@@ -493,23 +490,20 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
               </Label>
             </div>
             {/* Shipping option - show only if enabled or show as disabled */}
-            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${
-              !shippingStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
-            }`}>
-              <RadioGroupItem 
-                value="shipping" 
-                id="shipping" 
+            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${!shippingStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
+              }`}>
+              <RadioGroupItem
+                value="shipping"
+                id="shipping"
                 disabled={!shippingStatus.enabled}
               />
-              <Label 
-                htmlFor="shipping" 
-                className={`flex items-center gap-2 ${
-                  !shippingStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
-                }`}
+              <Label
+                htmlFor="shipping"
+                className={`flex items-center gap-2 ${!shippingStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
+                  }`}
               >
-                <Package2 className={`h-4 w-4 ${
-                  !shippingStatus.enabled ? 'text-gray-400' : ''
-                }`} />
+                <Package2 className={`h-4 w-4 ${!shippingStatus.enabled ? 'text-gray-400' : ''
+                  }`} />
                 Shipping
                 {!shippingStatus.enabled && (
                   <span className="text-xs text-red-500 ml-1 font-medium">(Disabled)</span>
@@ -632,116 +626,116 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
       {/* Delivery/Shipping Address - Show for delivery and shipping orders */}
       {(orderType === 'delivery' || orderType === 'shipping') && (
         <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {orderType === 'delivery' ? (
-                <Truck className="h-5 w-5" />
-              ) : (
-                <Package2 className="h-5 w-5" />
-              )}
-              {orderType === 'delivery' ? 'Delivery Address' : 'Shipping Address'}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowLocationPicker(!showLocationPicker)}
-              className="flex items-center gap-2"
-            >
-              <MapPin className="h-4 w-4" />
-              {showLocationPicker ? 'Manual Entry' : 'Use Map'}
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {showLocationPicker ? (
-            <div className="space-y-4">
-              {address.latitude && address.longitude && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
-                  <div className="font-medium text-green-700 mb-1 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Using Your Saved Location
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {orderType === 'delivery' ? (
+                  <Truck className="h-5 w-5" />
+                ) : (
+                  <Package2 className="h-5 w-5" />
+                )}
+                {orderType === 'delivery' ? 'Delivery Address' : 'Shipping Address'}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLocationPicker(!showLocationPicker)}
+                className="flex items-center gap-2"
+              >
+                <MapPin className="h-4 w-4" />
+                {showLocationPicker ? 'Manual Entry' : 'Use Map'}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {showLocationPicker ? (
+              <div className="space-y-4">
+                {address.latitude && address.longitude && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                    <div className="font-medium text-green-700 mb-1 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Using Your Saved Location
+                    </div>
+                    <div className="text-green-600">{address.street}</div>
+                    {address.city && <div className="text-green-600">{address.city}, {address.state} {address.zipCode}</div>}
+                    <div className="text-green-500 text-xs mt-1">
+                      Coordinates: {address.latitude?.toFixed(6)}, {address.longitude?.toFixed(6)}
+                    </div>
                   </div>
-                  <div className="text-green-600">{address.street}</div>
-                  {address.city && <div className="text-green-600">{address.city}, {address.state} {address.zipCode}</div>}
-                  <div className="text-green-500 text-xs mt-1">
-                    Coordinates: {address.latitude?.toFixed(6)}, {address.longitude?.toFixed(6)}
+                )}
+                <GoogleMapsLocationPicker
+                  onLocationSelect={handleLocationSelect}
+                  initialAddress={address.street + (address.city ? `, ${address.city}` : '') + (address.state ? `, ${address.state}` : '') + (address.zipCode ? ` ${address.zipCode}` : '')}
+                  initialLatitude={address.latitude}
+                  initialLongitude={address.longitude}
+                  height="350px"
+                  required={true}
+                />
+              </div>
+            ) : (
+              <>
+                {address.latitude && address.longitude && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                    <div className="font-medium text-green-700 mb-1 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Using Your Saved Location
+                    </div>
+                    <div className="text-green-600">GPS coordinates available for accurate delivery</div>
+                  </div>
+                )}
+                <div>
+                  <Label htmlFor="street">Street Address *</Label>
+                  <Input
+                    id="street"
+                    required
+                    value={address.street}
+                    onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                    placeholder="123 Main St"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      value={address.city}
+                      onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                      placeholder="New York"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      id="state"
+                      value={address.state}
+                      onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                      placeholder="NY"
+                    />
                   </div>
                 </div>
-              )}
-              <GoogleMapsLocationPicker
-                onLocationSelect={handleLocationSelect}
-                initialAddress={address.street + (address.city ? `, ${address.city}` : '') + (address.state ? `, ${address.state}` : '') + (address.zipCode ? ` ${address.zipCode}` : '')}
-                initialLatitude={address.latitude}
-                initialLongitude={address.longitude}
-                height="350px"
-                required={true}
+                <div>
+                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Input
+                    id="zipCode"
+                    value={address.zipCode}
+                    onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
+                    placeholder="10001"
+                  />
+                </div>
+              </>
+            )}
+            <div>
+              <Label htmlFor="instructions">Delivery Instructions</Label>
+              <Textarea
+                id="instructions"
+                value={address.instructions}
+                onChange={(e) => setAddress({ ...address, instructions: e.target.value })}
+                placeholder="Leave at door, ring bell, etc."
               />
             </div>
-          ) : (
-            <>
-              {address.latitude && address.longitude && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
-                  <div className="font-medium text-green-700 mb-1 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Using Your Saved Location
-                  </div>
-                  <div className="text-green-600">GPS coordinates available for accurate delivery</div>
-                </div>
-              )}
-              <div>
-                <Label htmlFor="street">Street Address *</Label>
-                <Input
-                  id="street"
-                  required
-                  value={address.street}
-                  onChange={(e) => setAddress({ ...address, street: e.target.value })}
-                  placeholder="123 Main St"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={address.city}
-                    onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                    placeholder="New York"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    value={address.state}
-                    onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                    placeholder="NY"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="zipCode">ZIP Code</Label>
-                <Input
-                  id="zipCode"
-                  value={address.zipCode}
-                  onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
-                  placeholder="10001"
-                />
-              </div>
-            </>
-          )}
-          <div>
-            <Label htmlFor="instructions">Delivery Instructions</Label>
-            <Textarea
-              id="instructions"
-              value={address.instructions}
-              onChange={(e) => setAddress({ ...address, instructions: e.target.value })}
-              placeholder="Leave at door, ring bell, etc."
-            />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       )}
 
       {/* Payment Method */}
@@ -777,7 +771,6 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
             Order Summary
           </CardTitle>
         </CardHeader>
@@ -828,9 +821,9 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
       </Card>
 
       {/* Submit Button */}
-      <Button 
-        type="submit" 
-        className="w-full" 
+      <Button
+        type="submit"
+        className="w-full"
         size="lg"
         disabled={!meetsMinimumOrder}
       >
