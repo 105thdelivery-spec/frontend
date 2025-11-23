@@ -468,48 +468,39 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
                 Pickup
               </Label>
             </div>
-            {/* Delivery option - show only if enabled or show as disabled */}
-            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${!deliveryStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
-              }`}>
-              <RadioGroupItem
-                value="delivery"
-                id="delivery"
-                disabled={!deliveryStatus.enabled}
-              />
-              <Label
-                htmlFor="delivery"
-                className={`flex items-center gap-2 ${!deliveryStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
-                  }`}
-              >
-                <Truck className={`h-4 w-4 ${!deliveryStatus.enabled ? 'text-gray-400' : ''
-                  }`} />
-                Delivery
-                {!deliveryStatus.enabled && (
-                  <span className="text-xs text-red-500 ml-1 font-medium">(Disabled)</span>
-                )}
-              </Label>
-            </div>
-            {/* Shipping option - show only if enabled or show as disabled */}
-            <div className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${!shippingStatus.enabled ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50'
-              }`}>
-              <RadioGroupItem
-                value="shipping"
-                id="shipping"
-                disabled={!shippingStatus.enabled}
-              />
-              <Label
-                htmlFor="shipping"
-                className={`flex items-center gap-2 ${!shippingStatus.enabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'
-                  }`}
-              >
-                <Package2 className={`h-4 w-4 ${!shippingStatus.enabled ? 'text-gray-400' : ''
-                  }`} />
-                Shipping
-                {!shippingStatus.enabled && (
-                  <span className="text-xs text-red-500 ml-1 font-medium">(Disabled)</span>
-                )}
-              </Label>
-            </div>
+            {/* Delivery option - show only if enabled */}
+            {deliveryStatus.enabled && (
+              <div className="flex items-center space-x-2 p-2 rounded-md transition-colors hover:bg-gray-50">
+                <RadioGroupItem
+                  value="delivery"
+                  id="delivery"
+                />
+                <Label
+                  htmlFor="delivery"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Truck className="h-4 w-4" />
+                  Delivery
+                </Label>
+              </div>
+            )}
+
+            {/* Shipping option - show only if enabled */}
+            {shippingStatus.enabled && (
+              <div className="flex items-center space-x-2 p-2 rounded-md transition-colors hover:bg-gray-50">
+                <RadioGroupItem
+                  value="shipping"
+                  id="shipping"
+                />
+                <Label
+                  htmlFor="shipping"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Package2 className="h-4 w-4" />
+                  Shipping
+                </Label>
+              </div>
+            )}
           </RadioGroup>
           {/* Show delivery status message if delivery is disabled and selected */}
           {!deliveryStatus.enabled && orderType === 'delivery' && (

@@ -15,13 +15,13 @@ import { useWeightLabel } from '@/contexts/WeightLabelContext';
 import { VariationSelectorV2 } from '@/components/products/VariationSelectorV2';
 import { PriceMatrixEntry } from '@/hooks/useProductVariants';
 import { Product } from '@/types';
-import { 
-  Plus, 
-  Minus, 
-  Share2, 
-  Star, 
-  Leaf, 
-  Clock, 
+import {
+  Plus,
+  Minus,
+  Share2,
+  Star,
+  Leaf,
+  Clock,
   Shield,
   Copy,
   MessageCircle,
@@ -118,11 +118,11 @@ export default function ProductDetails() {
         setLoading(true);
         const response = await fetch(`/api/products/${id}`);
         const result = await response.json();
-        
+
         if (result.success) {
           setProduct(result.data);
           setImageErrors(new Set()); // Reset image errors for new product
-          
+
           // Fetch inventory for simple products
           if (result.data.productType === 'simple') {
             fetchInventory(result.data.id, null);
@@ -149,7 +149,7 @@ export default function ProductDetails() {
     try {
       // Determine if this is a weight-based product
       const isWeightBased = product?.stockManagementType === 'weight';
-      
+
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
         headers: {
@@ -186,13 +186,13 @@ export default function ProductDetails() {
     setSelectedVariant(variant);
     setSelectedAttributes(attributes);
     setSelectedNumericValue(numericValue || null);
-    
+
     console.log('=== VARIANT CHANGE ===');
     console.log('Variant:', variant);
     console.log('Attributes:', attributes);
     console.log('numericValue received:', numericValue);
     console.log('selectedNumericValue will be set to:', numericValue || null);
-    
+
     // Fetch inventory for the selected variant
     if (variant && id) {
       fetchInventory(id, variant.variantId);
@@ -210,8 +210,8 @@ export default function ProductDetails() {
 
     // Use variant price if available, otherwise use base product price
     const effectivePrice = selectedVariant?.price || product.price;
-    const effectiveInStock = selectedVariant ? 
-      !selectedVariant.outOfStock : 
+    const effectiveInStock = selectedVariant ?
+      !selectedVariant.outOfStock :
       product.inStock;
 
     // Determine if weight-based
@@ -219,7 +219,7 @@ export default function ProductDetails() {
 
     // For weight-based variable products, use the numeric value from selected variation
     let effectiveWeight = quantity; // Default to quantity input
-    
+
     if (isWeightBased && selectedVariant && selectedNumericValue) {
       effectiveWeight = selectedNumericValue;
       console.log(`✓ Using numeric value from variation: ${effectiveWeight}${weightLabel}`);
@@ -243,8 +243,8 @@ export default function ProductDetails() {
       cbd: product.cbd,
       strain: product.strain as 'indica' | 'sativa' | 'hybrid',
       inStock: effectiveInStock,
-      stockManagementType: (product.stockManagementType === 'weight' || product.stockManagementType === 'quantity') 
-        ? product.stockManagementType 
+      stockManagementType: (product.stockManagementType === 'weight' || product.stockManagementType === 'quantity')
+        ? product.stockManagementType
         : undefined,
       pricePerUnit: product.pricePerUnit,
       baseWeightUnit: product.baseWeightUnit,
@@ -266,11 +266,14 @@ export default function ProductDetails() {
       console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
       addToCartWithToast(productForCart, quantity);
     }
+
+    // Redirect to cart page after adding product
+    router.push('/cart');
   };
 
   const handleShare = async (platform?: string) => {
     if (!product) return;
-    
+
     const url = window.location.href;
     // Strip HTML tags for sharing text
     const plainTextDescription = product.description.replace(/<[^>]*>/g, '');
@@ -362,7 +365,7 @@ export default function ProductDetails() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header title="Product Details" showBack />
-      
+
       <main className="container mx-auto px-4 py-6">
         {/* Product Image Gallery */}
         <div className="relative mb-6">
@@ -386,21 +389,20 @@ export default function ProductDetails() {
           >
             <Share2 className="h-4 w-4" />
           </Button>
-          
+
           {/* Image thumbnails */}
           {product.images.length > 1 && (
             <div className="flex gap-2 mt-4 overflow-x-auto">
               {product.images.map((image, index) => {
                 const thumbnailHasError = imageErrors.has(index);
                 const shouldShowThumbnailPlaceholder = !image || thumbnailHasError;
-                
+
                 return (
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                      selectedImageIndex === index ? 'border-primary' : 'border-transparent'
-                    }`}
+                    className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${selectedImageIndex === index ? 'border-primary' : 'border-transparent'
+                      }`}
                   >
                     {shouldShowThumbnailPlaceholder ? (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -427,7 +429,7 @@ export default function ProductDetails() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="secondary">{product.category}</Badge>
-               
+
                 {!product.inStock && <Badge variant="destructive">Out of Stock</Badge>}
               </div>
               <h1 className="text-2xl font-bold mb-2">{product.name}</h1>
@@ -445,7 +447,7 @@ export default function ProductDetails() {
                   <span>CBD: {product.cbd}%</span>
                 </div>
               </div>
-              <div 
+              <div
                 className="text-muted-foreground mb-4"
                 dangerouslySetInnerHTML={{ __html: product.description }}
               />
@@ -472,7 +474,7 @@ export default function ProductDetails() {
                     <p className="text-2xl font-bold text-primary">${product.price.toFixed(2)}</p>
                   </>
                 )}
-                
+
               </div>
             </div>
           </div>
@@ -484,8 +486,8 @@ export default function ProductDetails() {
                 <h3 className="font-semibold mb-3">Effects</h3>
                 <div className="flex flex-wrap gap-2">
                   {product.effects.map((effect) => (
-                    <Badge 
-                      key={effect.id} 
+                    <Badge
+                      key={effect.id}
                       variant="outline"
                       style={effect.color ? { borderColor: effect.color, color: effect.color } : undefined}
                       title={effect.description}
@@ -505,8 +507,8 @@ export default function ProductDetails() {
                 <h3 className="font-semibold mb-3">Flavors</h3>
                 <div className="flex flex-wrap gap-2">
                   {product.flavors.map((flavor) => (
-                    <Badge 
-                      key={flavor.id} 
+                    <Badge
+                      key={flavor.id}
                       variant="secondary"
                       style={flavor.color ? { backgroundColor: flavor.color, color: 'white' } : undefined}
                       title={flavor.description}
@@ -526,8 +528,8 @@ export default function ProductDetails() {
                 <h3 className="font-semibold mb-3">May Help With</h3>
                 <div className="flex flex-wrap gap-2">
                   {product.medicalUses.map((use) => (
-                    <Badge 
-                      key={use.id} 
+                    <Badge
+                      key={use.id}
                       variant="outline"
                       style={use.color ? { borderColor: use.color, color: use.color } : undefined}
                       title={use.description}
@@ -610,7 +612,7 @@ export default function ProductDetails() {
           </Card>*/}
 
           {/* Variation Selector */}
-          <VariationSelectorV2 
+          <VariationSelectorV2
             productId={id}
             onVariantChange={handleVariantChange}
           />
@@ -624,7 +626,7 @@ export default function ProductDetails() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Stock Status:</span>
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
-                      {availableQuantity > 0 
+                      {availableQuantity > 0
                         ? product.stockManagementType === 'weight'
                           ? `${availableQuantity.toFixed(0)}${weightLabel} available`
                           : `${availableQuantity} available`
@@ -640,7 +642,7 @@ export default function ProductDetails() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Stock Status:</span>
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
-                      {availableQuantity > 0 
+                      {availableQuantity > 0
                         ? product.stockManagementType === 'weight'
                           ? `${availableQuantity.toFixed(0)}${weightLabel} available`
                           : `${availableQuantity} available`
@@ -652,7 +654,7 @@ export default function ProductDetails() {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">
                   {product.stockManagementType === 'weight' ? `Quantity (${weightLabel})` : 'Quantity'}
@@ -671,14 +673,14 @@ export default function ProductDetails() {
                     size="icon"
                     variant="outline"
                     onClick={() => {
-                      const maxQty = stockManagementEnabled && availableQuantity !== null 
-                        ? availableQuantity 
+                      const maxQty = stockManagementEnabled && availableQuantity !== null
+                        ? availableQuantity
                         : 999;
                       setQuantity(Math.min(maxQty, quantity + 1));
                     }}
                     disabled={
-                      stockManagementEnabled && 
-                      availableQuantity !== null && 
+                      stockManagementEnabled &&
+                      availableQuantity !== null &&
                       quantity >= availableQuantity
                     }
                   >
@@ -686,21 +688,21 @@ export default function ProductDetails() {
                   </Button>
                 </div>
               </div>
-              
+
               <Separator className="mb-4" />
-              
+
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">Total</span>
                 <span className="text-xl font-bold text-primary">
                   ${((selectedVariant?.price || product.price) * quantity).toFixed(2)}
                 </span>
               </div>
-              
+
               <Button
                 className="w-full gap-2"
                 onClick={handleAddToCart}
                 disabled={
-                  selectedVariant 
+                  selectedVariant
                     ? (stockManagementEnabled && availableQuantity !== null ? availableQuantity === 0 : selectedVariant.outOfStock)
                     : !product.inStock
                 }
@@ -708,8 +710,8 @@ export default function ProductDetails() {
                 <ShoppingCart className="h-4 w-4" />
                 {(() => {
                   if (selectedVariant) {
-                    const isOutOfStock = stockManagementEnabled && availableQuantity !== null 
-                      ? availableQuantity === 0 
+                    const isOutOfStock = stockManagementEnabled && availableQuantity !== null
+                      ? availableQuantity === 0
                       : selectedVariant.outOfStock;
                     return isOutOfStock ? 'Out of Stock' : 'Add to Cart';
                   }

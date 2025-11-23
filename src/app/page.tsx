@@ -28,8 +28,8 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { addToCartWithToast, state } = useCart();
-  
+  const { state } = useCart();
+
   // Cache for products by category
   const productCache = useRef<Map<string, Product[]>>(new Map());
   const categoriesFetched = useRef(false);
@@ -112,10 +112,10 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const url = selectedCategory === 'all' 
-        ? '/api/products' 
+      const url = selectedCategory === 'all'
+        ? '/api/products'
         : `/api/products?category=${selectedCategory}`;
-      
+
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
@@ -132,25 +132,18 @@ export default function Home() {
     }
   };
 
-  const handleAddToCart = async (product: Product, quantity: number) => {
-    await addToCartWithToast(product, quantity);
-    // Clear cache to ensure fresh data on next category switch
-    // This ensures stock levels are updated
-    productCache.current.clear();
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <DynamicTitle pageTitle="Home" />
       <Header title="Store name" showSearch notifications={2} />
-      
+
       <main className="container mx-auto px-4 py-6 flex-1 mb-6">
         {/* Driver Dashboard - Show Nearby Orders at top if user is a driver */}
         {isDriver && session?.user?.id && (
           <div className="mb-6">
             <NearbyOrders userId={session.user.id} />
           </div>
-        )} 
+        )}
 
         {/* Categories - Only show for non-driver users */}
         {!isDriver && (
@@ -200,7 +193,6 @@ export default function Home() {
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={handleAddToCart}
                   />
                 ))}
               </div>

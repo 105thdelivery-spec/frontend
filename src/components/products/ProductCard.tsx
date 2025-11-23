@@ -1,24 +1,20 @@
 'use client'
 
 import { useState } from 'react';
-import { Plus, Minus, ShoppingCart, Package } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types';
 import { useRouter } from 'next/navigation';
-import { useWeightLabel } from '@/contexts/WeightLabelContext';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product, quantity: number) => void;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
-  const [quantity, setQuantity] = useState(1);
+export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
-  const { weightLabel } = useWeightLabel();
 
   // Debug image URL
   console.log(`Product ${product.name}:`, {
@@ -27,12 +23,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     imageType: typeof product.image
   });
 
-  const handleAddToCart = () => {
-    onAddToCart(product, quantity);
-    setQuantity(1);
-    // Redirect to cart page
-    router.push('/cart');
-  };
 
   // Determine if weight-based or quantity-based
   const isWeightBased = product.stockManagementType === 'weight';
@@ -142,7 +132,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                     {!isOutOfStock ? (
                       <span className="text-muted-foreground">
                         {isWeightBased
-                          ? `${product.availableWeight?.toFixed(0)}${weightLabel} available`
+                          ? `${product.availableWeight?.toFixed(0)}g available`
                           : `${product.availableQuantity} available`
                         }
                       </span>
@@ -152,35 +142,18 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                   </div>
                 )}
 
+
                 <div className="flex items-center gap-2">
-                  {/* Hide quantity selector and add to cart for variable products */}
-                  {!product.isVariableProduct && (
-                    <>
-
-
-                      <Button
-                        size="sm"
-                        onClick={handleAddToCart}
-                        className="gap-1"
-                        disabled={isOutOfStock}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                        {isWeightBased ? 'Add' : 'Add'}
-                      </Button>
-                    </>
-                  )}
-
-                  {/* Show "Select Options" button for variable products */}
-                  {product.isVariableProduct && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => router.push(`/product/${product.id}`)}
-                      className="gap-1 w-max"
-                    >
-                      Select Options
-                    </Button>
-                  )}
+                  {/* View More button for all products */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(`/product/${product.id}`)}
+                    className="gap-1 w-full"
+                    disabled={isOutOfStock}
+                  >
+                    View More
+                  </Button>
                 </div>
               </div>
             )}
