@@ -12,7 +12,7 @@ async function getStockManagementSetting() {
       .from(settings)
       .where(eq(settings.key, 'stock_management_enabled'))
       .limit(1);
-    
+
     return setting.length > 0 ? setting[0].value === 'true' : false;
   } catch (error) {
     console.error('Error fetching stock management setting:', error);
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       .groupBy(products.id, categories.id)
       .orderBy(
         desc(sql<number>`CASE WHEN ${products.outOfStock} = 0 THEN 1 ELSE 0 END`), // In stock first (only check out_of_stock column)
-        desc(products.isFeatured), 
+        desc(products.isFeatured),
         desc(products.createdAt)
       )
       .limit(limit);
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
       availableWeight?: number;
     };
     let inventoryMap: Map<string, InventoryData> = new Map();
-    
+
     if (stockManagementEnabled) {
       const productIds = productsWithDetails.map(p => p.product.id);
       const inventories = await db
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
             isNull(productInventory.variantId)
           )
         );
-      
+
       inventories.forEach(inv => {
         if (inv.productId) {
           inventoryMap.set(inv.productId, {
@@ -149,10 +149,10 @@ export async function GET(req: NextRequest) {
       // Parse JSON fields safely
       let images: string[] = [];
       let tags: string[] = [];
-      
+
       // Parse images using the normalization utility (handles sortOrder)
       images = normalizeProductImages(item.product.images);
-      
+
       // Debug logging for images
       console.log(`Product ${item.product.name} images:`, {
         raw: item.product.images,
@@ -168,10 +168,10 @@ export async function GET(req: NextRequest) {
       if (item.product.productType === 'variable') {
         // For variable products: in stock if has variants and not ALL variants are out of stock
         const hasVariants = (item.variantStock?.totalVariants || 0) > 0;
-        const allVariantsOutOfStock = hasVariants && 
+        const allVariantsOutOfStock = hasVariants &&
           item.variantStock?.totalVariants === item.variantStock?.outOfStockVariants;
         inStock = hasVariants && !allVariantsOutOfStock;
-        
+
         console.log(`=== PRODUCT STOCK DEBUG (${item.product.name}) ===`);
         console.log('Product Type:', item.product.productType);
         console.log('Total Variants:', item.variantStock?.totalVariants);
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
         // For simple products: only check outOfStock column, ignore inventory
         const isMarkedOutOfStock = item.product.outOfStock === true;
         inStock = !isMarkedOutOfStock;
-        
+
         console.log(`=== SIMPLE PRODUCT STOCK DEBUG (${item.product.name}) ===`);
         console.log('Product Type:', item.product.productType);
         console.log('OutOfStock Column:', item.product.outOfStock);
@@ -201,16 +201,16 @@ export async function GET(req: NextRequest) {
       if (isVariableProduct && item.priceRange?.minPrice && item.priceRange?.maxPrice) {
         minPrice = parseFloat(item.priceRange.minPrice.toString());
         maxPrice = parseFloat(item.priceRange.maxPrice.toString());
-        
+
         // For variable products, use the minimum price as the main display price
         displayPrice = minPrice;
-        
+
         console.log('Price Range Calculation:');
         console.log('- Min Price:', minPrice);
         console.log('- Max Price:', maxPrice);
         console.log('- Display Price:', displayPrice);
       }
-      
+
       // Get available inventory for simple products
       const inventoryData = !isVariableProduct && stockManagementEnabled
         ? inventoryMap.get(item.product.id)
@@ -222,8 +222,8 @@ export async function GET(req: NextRequest) {
       return {
         id: item.product.id,
         name: item.product.name,
-        category: item.category?.name || 'Uncategorized',
-        categorySlug: item.category?.slug || 'uncategorized',
+        category: item.category?.name || '',
+        categorySlug: item.category?.slug || '',
         price: displayPrice,
         comparePrice: item.product.comparePrice ? parseFloat(item.product.comparePrice.toString()) : null,
         // Add price range information for variable products
@@ -259,8 +259,8 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to fetch products',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

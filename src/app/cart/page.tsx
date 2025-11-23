@@ -16,6 +16,23 @@ export default function CartPage() {
   const { data: session, status } = useSession();
   const { state, removeFromCart, updateQuantity } = useCart();
   const router = useRouter();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Prevent flash of empty cart by waiting a bit for cart state to sync
+  useEffect(() => {
+    // If we have items, we're definitely ready
+    if (state.items.length > 0) {
+      setIsInitializing(false);
+      return;
+    }
+
+    // Otherwise wait a bit to ensure we're not just waiting for a fetch
+    const timer = setTimeout(() => {
+      setIsInitializing(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [state.items.length]);
 
   // Redirect to register if not authenticated
   useEffect(() => {
@@ -26,8 +43,8 @@ export default function CartPage() {
     }
   }, [session, status]);
 
-  // Show loading while checking authentication
-  if (status === 'loading') {
+  // Show loading while checking authentication or initializing cart
+  if (status === 'loading' || (isInitializing && state.items.length === 0)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -68,7 +85,7 @@ export default function CartPage() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <Header title="Your Cart" />
-        
+
         <main className="container mx-auto px-4 py-12">
           <div className="text-center space-y-4">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -76,7 +93,7 @@ export default function CartPage() {
           </div>
         </main>
 
-        <MobileNav  />
+        <MobileNav />
       </div>
     );
   }
@@ -85,7 +102,7 @@ export default function CartPage() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <Header title="Your Cart" />
-        
+
         <main className="container mx-auto px-4 py-12">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">🛒</div>
@@ -97,7 +114,7 @@ export default function CartPage() {
           </div>
         </main>
 
-        <MobileNav  />
+        <MobileNav />
       </div>
     );
   }
@@ -106,7 +123,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-background pb-20">
       <DynamicTitle pageTitle="Cart" />
       <Header title="Your Cart" />
-      
+
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Cart Items */}
         <div className="space-y-4">
@@ -119,13 +136,13 @@ export default function CartPage() {
                     alt={item.product.name}
                     className="w-20 h-20 object-cover rounded-lg"
                   />
-                  
+
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold">{item.product.name}</h3>
                         <p className="text-sm text-muted-foreground">{item.product.category}</p>
-                        
+
                         {/* Show selected variant information */}
                         {item.product.selectedAttributes && Object.keys(item.product.selectedAttributes).length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -136,7 +153,7 @@ export default function CartPage() {
                             ))}
                           </div>
                         )}
-                        
+
                         {/* Show variant SKU if available */}
                         {item.product.variantSku && (
                           <p className="text-xs text-muted-foreground mt-1">SKU: {item.product.variantSku}</p>
@@ -151,7 +168,7 @@ export default function CartPage() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    
+
                     <div className="flex justify-between items-center">
                       <div className="flex items-center border rounded-lg">
                         <Button
@@ -172,7 +189,7 @@ export default function CartPage() {
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      
+
                       <div className="text-right">
                         <p className="font-semibold">${(item.product.price * item.quantity).toFixed(2)}</p>
                         <p className="text-sm text-muted-foreground">${item.product.price}/each</p>
@@ -189,7 +206,7 @@ export default function CartPage() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <h3 className="text-lg font-semibold">Order Summary</h3>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal ({cartCount} items)</span>
@@ -207,10 +224,10 @@ export default function CartPage() {
               </div>
             </div>
 
-            <ThemedButton 
-              onClick={handleCheckout} 
-              size="lg" 
-              className="w-full" 
+            <ThemedButton
+              onClick={handleCheckout}
+              size="lg"
+              className="w-full"
               variant="premium"
             >
               Proceed to Checkout

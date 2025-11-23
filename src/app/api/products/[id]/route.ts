@@ -113,7 +113,7 @@ export async function GET(
     // Parse JSON fields safely
     let images: string[] = [];
     let legacyTags: string[] = [];
-    
+
     // Process tags by group
     const tagsByGroup: Record<string, Array<{
       id: string;
@@ -123,13 +123,13 @@ export async function GET(
       icon?: string;
       customValue?: string;
     }>> = {};
-    
+
     productTagsWithGroups.forEach(item => {
       const groupSlug = item.group.slug;
       if (!tagsByGroup[groupSlug]) {
         tagsByGroup[groupSlug] = [];
       }
-      
+
       tagsByGroup[groupSlug].push({
         id: item.tag.id,
         name: item.productTag.customValue || item.tag.customValue || item.tag.name,
@@ -151,14 +151,14 @@ export async function GET(
     if (item.product.productType === 'variable') {
       // For variable products: in stock if has variants and not ALL variants are out of stock
       const hasVariants = (item.variantStock?.totalVariants || 0) > 0;
-      const allVariantsOutOfStock = hasVariants && 
+      const allVariantsOutOfStock = hasVariants &&
         item.variantStock?.totalVariants === item.variantStock?.outOfStockVariants;
       inStock = hasVariants && !allVariantsOutOfStock;
     } else {
       // For simple products: only check outOfStock column, ignore inventory
       const isMarkedOutOfStock = item.product.outOfStock === true;
       inStock = !isMarkedOutOfStock;
-      
+
       console.log(`=== SIMPLE PRODUCT DETAILS STOCK DEBUG (${item.product.name}) ===`);
       console.log('Product Type:', item.product.productType);
       console.log('OutOfStock Column:', item.product.outOfStock);
@@ -170,8 +170,8 @@ export async function GET(
     const transformedProduct = {
       id: item.product.id,
       name: item.product.name,
-      category: item.category?.name || 'Uncategorized',
-      categorySlug: item.category?.slug || 'uncategorized',
+      category: item.category?.name || '',
+      categorySlug: item.category?.slug || '',
       price: parseFloat(item.product.price?.toString() || '0'),
       comparePrice: item.product.comparePrice ? parseFloat(item.product.comparePrice.toString()) : null,
       image: images[0] || null, // First image or null for placeholder
