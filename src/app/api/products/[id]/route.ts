@@ -66,7 +66,7 @@ export async function GET(
         eq(productVariants.isActive, true)
       ))
       .where(and(eq(products.id, productId), eq(products.isActive, true)))
-      .groupBy(products.id, categories.id)
+      .groupBy(products.id, categories.id, productInventory.id)
       .limit(1);
 
     if (productWithDetails.length === 0) {
