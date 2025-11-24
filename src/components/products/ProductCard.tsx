@@ -16,13 +16,6 @@ export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
 
-  // Debug image URL
-  console.log(`Product ${product.name}:`, {
-    image: product.image,
-    hasImage: !!product.image,
-    imageType: typeof product.image
-  });
-
 
   // Determine if weight-based or quantity-based
   const isWeightBased = product.stockManagementType === 'weight';
@@ -61,13 +54,8 @@ export function ProductCard({ product }: ProductCardProps) {
             src={product.image}
             alt={product.name}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              console.error(`Image failed to load for ${product.name}:`, product.image);
-              console.error('Error event:', e);
+            onError={() => {
               setImageError(true);
-            }}
-            onLoad={() => {
-              console.log(`Image loaded successfully for ${product.name}`);
             }}
           />
         ) : (

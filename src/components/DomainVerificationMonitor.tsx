@@ -70,19 +70,15 @@ export default function DomainVerificationMonitor({
 
           // If cached within interval (30 days) and domain matches and status is valid
           if (now - timestamp < checkInterval && domain === currentDomain && status === 'valid') {
-            console.log('Using cached domain verification');
             setDomainStatus('valid');
             return;
           }
         } catch (e) {
-          console.error('Error parsing domain cache', e);
+          console.warn('Error parsing domain cache', e);
         }
       }
 
-      console.log('Domain verification check:', {
-        domain: currentDomain,
-        timestamp: new Date().toISOString()
-      });
+      // Domain verification check in progress
 
       const response = await fetch('/api/debug/check-domain', {
         method: 'POST',
@@ -150,14 +146,7 @@ export default function DomainVerificationMonitor({
           }
         }
 
-        // All checks passed
-        console.log('Domain verification: PASSED - All checks successful', {
-          domain: result.result.domain,
-          status: client.status,
-          subscriptionStatus: client.subscriptionStatus,
-          subscriptionEndDate: client.subscriptionEndDate,
-          cached: result.result.cached || false,
-        });
+        // All checks passed - domain verification successful
 
         setDomainStatus('valid');
 
@@ -197,14 +186,9 @@ export default function DomainVerificationMonitor({
     const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
     const skipCheck = shouldSkipDomainCheck();
 
-    console.log('DomainVerificationMonitor: Initializing', {
-      currentPath,
-      skipCheck,
-      isServer: typeof window === 'undefined'
-    });
+    // Initialize domain verification monitor
 
     if (skipCheck || typeof window === 'undefined') {
-      console.log('DomainVerificationMonitor: Skipping domain check for', currentPath);
       setIsInitialized(true);
       setDomainStatus('valid');
       return;
