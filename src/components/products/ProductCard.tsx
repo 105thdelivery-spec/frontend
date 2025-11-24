@@ -83,11 +83,13 @@ export function ProductCard({ product }: ProductCardProps) {
             <Badge variant="destructive">Out of Stock</Badge>
           </div>
         )}
-        <Badge
-          className="absolute top-2 right-2 bg-blue-100 text-blue-800"
-        >
-          {product.category}
-        </Badge>
+        {product.category && product.category !== 'Uncategorized' && (
+          <Badge
+            className="absolute top-2 right-2 bg-blue-100 text-blue-800"
+          >
+            {product.category}
+          </Badge>
+        )}
       </div>
 
       <CardContent className="p-4">

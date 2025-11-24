@@ -93,7 +93,7 @@ export default function Home() {
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
-          setCategories(result.data);
+          setCategories(result.data.filter((c: Category) => c.name !== 'Uncategorized'));
         }
       }
     } catch (error) {
