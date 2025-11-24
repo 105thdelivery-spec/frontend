@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { Package } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types';
-import { useRouter } from 'next/navigation';
 
 interface ProductCardProps {
   product: Product;
@@ -14,7 +14,6 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
-  const router = useRouter();
 
 
   // Determine if weight-based or quantity-based
@@ -45,40 +44,39 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Card className="overflow-hidden hover:shadow-card transition-all duration-300 hover:scale-[1.02] bg-gradient-card">
-      <div
-        className="aspect-square relative overflow-hidden cursor-pointer"
-        onClick={() => router.push(`/product/${product.id}`)}
-      >
-        {product.image && !imageError ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            onError={() => {
-              setImageError(true);
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center">
-            <Package className="w-16 h-16 text-muted-foreground/50" />
-            {imageError && (
-              <span className="text-xs text-muted-foreground absolute bottom-2">Image failed</span>
-            )}
-          </div>
-        )}
-        {!product.inStock && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <Badge variant="destructive">Out of Stock</Badge>
-          </div>
-        )}
-        {product.category && product.category !== 'Uncategorized' && (
-          <Badge
-            className="absolute top-2 right-2 bg-blue-100 text-blue-800"
-          >
-            {product.category}
-          </Badge>
-        )}
-      </div>
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="aspect-square relative overflow-hidden">
+          {product.image && !imageError ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              onError={() => {
+                setImageError(true);
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <Package className="w-16 h-16 text-muted-foreground/50" />
+              {imageError && (
+                <span className="text-xs text-muted-foreground absolute bottom-2">Image failed</span>
+              )}
+            </div>
+          )}
+          {!product.inStock && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <Badge variant="destructive">Out of Stock</Badge>
+            </div>
+          )}
+          {product.category && product.category !== 'Uncategorized' && (
+            <Badge
+              className="absolute top-2 right-2 bg-blue-100 text-blue-800"
+            >
+              {product.category}
+            </Badge>
+          )}
+        </div>
+      </Link>
 
       <CardContent className="p-4">
         <div className="space-y-3">
@@ -138,11 +136,13 @@ export function ProductCard({ product }: ProductCardProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => router.push(`/product/${product.id}`)}
+                    asChild
                     className="gap-1 w-full"
                     disabled={isOutOfStock}
                   >
-                    View More
+                    <Link href={`/product/${product.id}`}>
+                      View More
+                    </Link>
                   </Button>
                 </div>
               </div>
