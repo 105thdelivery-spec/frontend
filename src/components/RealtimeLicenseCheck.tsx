@@ -18,10 +18,10 @@ export default function RealtimeLicenseCheck({ children, skipCheck = false }: Re
   // Pages where real-time license checking should be skipped
   const shouldSkipLicenseCheck = (): boolean => {
     if (skipCheck) return true;
-    
+
     // Check both pathname and window.location for robustness
     const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
-    
+
     const exemptRoutes = [
       '/test-admin-connection',
       '/debug/',
@@ -29,7 +29,7 @@ export default function RealtimeLicenseCheck({ children, skipCheck = false }: Re
       '/license-invalid',
       '/logout'
     ];
-    
+
     return exemptRoutes.some(route => currentPath.startsWith(route));
   };
 
@@ -43,12 +43,12 @@ export default function RealtimeLicenseCheck({ children, skipCheck = false }: Re
 
     const performImmediateLicenseCheck = async () => {
       try {
-        console.log('Performing real-time license check on page load...');
+        // Performing real-time license check on page load
         const result = await validateLicense();
-        
+
         if (!result.isValid) {
           console.error('Real-time license check failed:', result.error);
-          
+
           // Clear all license data immediately
           if (typeof window !== 'undefined') {
             document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
@@ -56,11 +56,11 @@ export default function RealtimeLicenseCheck({ children, skipCheck = false }: Re
             sessionStorage.removeItem('saas_license_status');
             sessionStorage.removeItem('license_cache');
           }
-          
+
           // Check if client was deleted
-          const isDeletedClient = result.error?.includes('Invalid license key') || 
-                                 result.error?.includes('License key not found');
-          
+          const isDeletedClient = result.error?.includes('Invalid license key') ||
+            result.error?.includes('License key not found');
+
           if (isDeletedClient) {
             console.error('Client deleted - immediate redirect to license setup');
             window.location.href = '/license-setup';
@@ -69,10 +69,10 @@ export default function RealtimeLicenseCheck({ children, skipCheck = false }: Re
           } else {
             router.push('/license-invalid');
           }
-          
+
           return;
         }
-        
+
         console.log('Real-time license check passed');
         setIsValid(true);
       } catch (error) {

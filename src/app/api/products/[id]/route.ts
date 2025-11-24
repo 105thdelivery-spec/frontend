@@ -8,8 +8,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let productId: string | undefined;
   try {
-    const { id: productId } = await params;
+    const { id } = await params;
+    productId = id;
 
     if (!productId) {
       return NextResponse.json({ success: false, error: 'Product ID is required' }, { status: 400 });
@@ -207,7 +209,16 @@ export async function GET(
       data: transformedProduct,
     });
   } catch (error) {
-    console.error('Error fetching product:', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch product' }, { status: 500 });
+    console.error('Error fetching product details:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      productId,
+    });
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch product',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

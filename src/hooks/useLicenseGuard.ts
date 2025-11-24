@@ -20,49 +20,44 @@ export function useLicenseGuard(options: UseLicenseGuardOptions = {}) {
     onLicenseInvalid,
     onLicenseValid
   } = options;
-  
+
   const router = useRouter();
 
   const performLicenseCheck = useCallback(async () => {
     try {
       const currentDomain = getCurrentDomain();
       const storedStatus = getStoredLicenseStatus();
-      
-      console.log('License check - current domain:', currentDomain);
-      console.log('Stored status:', storedStatus ? { 
-        isValid: storedStatus.isValid, 
-        lastVerified: new Date(storedStatus.lastVerified || 0).toISOString(),
-        licenseKey: storedStatus.licenseKey?.substring(0, 10) + '...'
-      } : null);
-      
+
+      // Checking license for current domain
+
       // Check if we're on the license setup page to prevent redirect loops
-      const isOnLicenseSetup = typeof window !== 'undefined' && 
-                              window.location.pathname === '/license-setup';
-      
+      const isOnLicenseSetup = typeof window !== 'undefined' &&
+        window.location.pathname === '/license-setup';
+
       // ALWAYS validate - be very strict
       const result = await validateLicense();
-      
+
       if (!result.isValid) {
         console.warn('License validation failed:', result.error);
-        
+
         // Immediately clear ALL license data from cookie and localStorage
         if (typeof window !== 'undefined') {
           document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
           localStorage.removeItem('saas_license_status');
-          
+
           // Force clear any cached license status
           sessionStorage.removeItem('saas_license_status');
           sessionStorage.removeItem('license_cache');
         }
-        
+
         // Special handling for deleted clients - immediate redirect
-        const isDeletedClient = result.error?.includes('Invalid license key') || 
-                               result.error?.includes('License key not found');
-        
+        const isDeletedClient = result.error?.includes('Invalid license key') ||
+          result.error?.includes('License key not found');
+
         if (onLicenseInvalid) {
           onLicenseInvalid();
         }
-        
+
         if (redirectOnFailure && !isOnLicenseSetup) {
           if (result.needsSetup || isDeletedClient) {
             // Force immediate redirect for deleted clients
@@ -76,10 +71,10 @@ export function useLicenseGuard(options: UseLicenseGuardOptions = {}) {
             router.push('/license-invalid');
           }
         }
-        
+
         return false;
       } else {
-        console.log('License validation successful');
+        // License validation successful
         if (onLicenseValid) {
           onLicenseValid();
         }
@@ -87,25 +82,25 @@ export function useLicenseGuard(options: UseLicenseGuardOptions = {}) {
       }
     } catch (error) {
       console.error('License check failed:', error);
-      
+
       // Check if we're on the license setup page to prevent redirect loops
-      const isOnLicenseSetup = typeof window !== 'undefined' && 
-                              window.location.pathname === '/license-setup';
-      
+      const isOnLicenseSetup = typeof window !== 'undefined' &&
+        window.location.pathname === '/license-setup';
+
       // Clear license on any error - be very strict
       if (typeof window !== 'undefined') {
         document.cookie = 'license_key=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
         localStorage.removeItem('saas_license_status');
       }
-      
+
       if (onLicenseInvalid) {
         onLicenseInvalid();
       }
-      
+
       if (redirectOnFailure && !isOnLicenseSetup) {
         router.push('/license-setup');
       }
-      
+
       return false;
     }
   }, [checkInterval, redirectOnFailure, onLicenseInvalid, onLicenseValid, router]);

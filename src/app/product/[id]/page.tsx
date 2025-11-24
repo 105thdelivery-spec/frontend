@@ -129,11 +129,17 @@ export default function ProductDetails() {
           }
         } else {
           console.error('Failed to load product:', result.error);
-          router.push('/');
+          console.error('API response:', result);
+          if (result.details) {
+            console.error('Error details:', result.details);
+          }
+          // Don't redirect immediately - let user see the error
+          setTimeout(() => router.push('/'), 2000);
         }
       } catch (error) {
         console.error('Error fetching product:', error);
-        router.push('/');
+        // Don't redirect immediately - let user see the error  
+        setTimeout(() => router.push('/'), 2000);
       } finally {
         setLoading(false);
       }

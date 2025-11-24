@@ -34,7 +34,7 @@ export function getCurrentDomain(): string {
   if (typeof window !== 'undefined') {
     return window.location.hostname;
   }
-  
+
   // For server-side, get from environment or headers
   return process.env.NEXT_PUBLIC_DOMAIN || 'localhost';
 }
@@ -44,7 +44,7 @@ export function validateDomainMatch(licensedDomain: string, currentDomain: strin
   // Normalize domains to lowercase
   const licensed = licensedDomain.toLowerCase().trim();
   const current = currentDomain.toLowerCase().trim();
-  
+
   // Must be exact match - no subdomain allowance
   return licensed === current;
 }
@@ -52,7 +52,7 @@ export function validateDomainMatch(licensedDomain: string, currentDomain: strin
 // Get stored license status from localStorage
 export function getStoredLicenseStatus(): LicenseStatus | null {
   if (typeof window === 'undefined') return null;
-  
+
   try {
     const stored = localStorage.getItem(LICENSE_CONFIG.STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
@@ -64,7 +64,7 @@ export function getStoredLicenseStatus(): LicenseStatus | null {
 // Store license status to localStorage
 export function storeLicenseStatus(status: LicenseStatus): void {
   if (typeof window === 'undefined') return;
-  
+
   try {
     localStorage.setItem(LICENSE_CONFIG.STORAGE_KEY, JSON.stringify(status));
   } catch (error) {
@@ -76,9 +76,9 @@ export function storeLicenseStatus(status: LicenseStatus): void {
 export async function verifyLicense(licenseKey: string, domain?: string): Promise<LicenseVerificationResponse> {
   const currentDomain = domain || getCurrentDomain();
   const url = `${LICENSE_CONFIG.ADMIN_PANEL_URL}${LICENSE_CONFIG.VERIFICATION_ENDPOINT}`;
-  
+
   console.log('Attempting license verification:', { url, currentDomain, licenseKey: licenseKey.substring(0, 10) + '...' });
-  
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -94,9 +94,9 @@ export async function verifyLicense(licenseKey: string, domain?: string): Promis
 
     if (!response.ok) {
       console.error('License verification failed with status:', response.status);
-      
+
       let errorMessage = `License server responded with status ${response.status}`;
-      
+
       // Handle specific error cases
       if (response.status === 405) {
         errorMessage = 'License server API endpoint not properly configured (Method Not Allowed)';
@@ -109,7 +109,7 @@ export async function verifyLicense(licenseKey: string, domain?: string): Promis
       } else if (response.status >= 500) {
         errorMessage = 'License server internal error';
       }
-      
+
       // Try to get detailed error from response
       try {
         const errorData = await response.json();
@@ -119,7 +119,7 @@ export async function verifyLicense(licenseKey: string, domain?: string): Promis
       } catch {
         // Response might not be JSON
       }
-      
+
       return {
         valid: false,
         error: errorMessage
@@ -157,9 +157,9 @@ export async function verifyLicense(licenseKey: string, domain?: string): Promis
 export async function checkLicenseStatus(licenseKey: string, domain?: string): Promise<LicenseVerificationResponse> {
   const currentDomain = domain || getCurrentDomain();
   const url = `${LICENSE_CONFIG.ADMIN_PANEL_URL}${LICENSE_CONFIG.CHECK_ENDPOINT}?license=${encodeURIComponent(licenseKey)}&domain=${encodeURIComponent(currentDomain)}`;
-  
+
   console.log('Attempting license status check:', { url, currentDomain });
-  
+
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -202,17 +202,17 @@ export async function checkLicenseStatus(licenseKey: string, domain?: string): P
 // Check if license verification is needed
 export function needsVerification(lastVerified: number | null): boolean {
   if (!lastVerified) return true;
-  
+
   const now = Date.now();
   const timeSinceVerification = now - lastVerified;
-  
+
   return timeSinceVerification > LICENSE_CONFIG.VERIFICATION_INTERVAL;
 }
 
 // Check if we're in grace period
 export function isInGracePeriod(gracePeriodExpiry: number | null): boolean {
   if (!gracePeriodExpiry) return false;
-  
+
   return Date.now() < gracePeriodExpiry;
 }
 
@@ -220,21 +220,21 @@ export function isInGracePeriod(gracePeriodExpiry: number | null): boolean {
 export async function updateLicenseStatus(licenseKey: string): Promise<LicenseStatus> {
   const verificationResult = await verifyLicense(licenseKey);
   const now = Date.now();
-  
+
   // Special handling for deleted clients - NO grace period for "Invalid license key"
-  const isDeletedClient = verificationResult.error?.includes('Invalid license key') || 
-                          verificationResult.error?.includes('License key not found');
-  
+  const isDeletedClient = verificationResult.error?.includes('Invalid license key') ||
+    verificationResult.error?.includes('License key not found');
+
   const status: LicenseStatus = {
     isValid: verificationResult.valid,
     licenseKey,
     lastVerified: now,
     error: verificationResult.error || null,
     // No grace period for deleted clients, minimal grace for other errors
-    gracePeriodExpiry: verificationResult.valid ? null : 
-                      isDeletedClient ? null : now + LICENSE_CONFIG.GRACE_PERIOD
+    gracePeriodExpiry: verificationResult.valid ? null :
+      isDeletedClient ? null : now + LICENSE_CONFIG.GRACE_PERIOD
   };
-  
+
   storeLicenseStatus(status);
   return status;
 }
@@ -244,13 +244,13 @@ export function getLicenseKey(): string | null {
   // Try environment variable first (for initial setup)
   const envLicense = process.env.NEXT_PUBLIC_LICENSE_KEY;
   if (envLicense) return envLicense;
-  
+
   // Try cookie (for middleware)
   if (typeof document !== 'undefined') {
     const cookieMatch = document.cookie.match(/license_key=([^;]+)/);
     if (cookieMatch) return cookieMatch[1];
   }
-  
+
   // Try localStorage
   const stored = getStoredLicenseStatus();
   return stored?.licenseKey || null;
@@ -259,7 +259,7 @@ export function getLicenseKey(): string | null {
 // Check global license status from admin database
 export async function checkGlobalLicenseStatus(licenseKey: string, domain?: string): Promise<LicenseVerificationResponse> {
   const currentDomain = domain || getCurrentDomain();
-  
+
   try {
     const response = await fetch('/api/license/check-global-status', {
       method: 'POST',
@@ -305,7 +305,7 @@ export async function checkLicenseByDomain(domain?: string): Promise<{
   client?: any;
 }> {
   const currentDomain = domain || getCurrentDomain();
-  
+
   try {
     const response = await fetch('/api/license/check-by-domain', {
       method: 'POST',
@@ -348,41 +348,41 @@ export async function validateLicense(): Promise<{
   error?: string;
   needsSetup?: boolean;
 }> {
-  console.log('Validating license by domain only...');
-  
+  // Validating license by domain only
+
   try {
     // Check license by domain in admin database
     const domainCheck = await checkLicenseByDomain();
-    
+
     if (domainCheck.valid && domainCheck.globallyVerified) {
-      console.log('License found and globally verified for this domain');
+      // License found and globally verified for this domain
       return { isValid: true };
     }
-    
+
     if (domainCheck.valid && !domainCheck.globallyVerified) {
-      console.log('License found but not globally verified - needs setup');
+      // License found but not globally verified - needs setup
       return {
         isValid: false,
         needsSetup: true,
         error: 'License exists but needs to be activated'
       };
     }
-    
+
     if (!domainCheck.valid) {
-      console.log('No valid license found for this domain');
+      // No valid license found for this domain
       return {
         isValid: false,
         needsSetup: true,
         error: domainCheck.error || 'No license found for this domain'
       };
     }
-    
+
     return {
       isValid: false,
       needsSetup: true,
       error: 'License validation failed'
     };
-    
+
   } catch (error) {
     console.error('License validation error:', error);
     return {
@@ -400,7 +400,7 @@ export async function setupLicense(licenseKey: string): Promise<{
 }> {
   try {
     const verificationResult = await verifyLicense(licenseKey);
-    
+
     if (verificationResult.valid) {
       const status: LicenseStatus = {
         isValid: true,
@@ -409,7 +409,7 @@ export async function setupLicense(licenseKey: string): Promise<{
         error: null,
         gracePeriodExpiry: null
       };
-      
+
       storeLicenseStatus(status);
       return { success: true };
     } else {

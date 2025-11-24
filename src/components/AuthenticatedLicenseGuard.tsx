@@ -48,7 +48,7 @@ export default function AuthenticatedLicenseGuard({ children }: AuthenticatedLic
   }
 
   // Only authenticated users get license checking components
-  console.log('Authenticated user - enabling license checks for:', pathname);
+  // Authenticated user - license checks enabled
   return (
     <DomainVerificationMonitor>
       <LicenseGuard>
