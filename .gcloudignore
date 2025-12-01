@@ -43,9 +43,6 @@ README.md
 docs/
 *.md
 
-# Drizzle
-drizzle/
-
 # Debug
 vercel-debug.txt
 npm-debug.log*

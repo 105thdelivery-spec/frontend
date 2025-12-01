@@ -49,9 +49,6 @@ docs
 # TypeScript build info
 *.tsbuildinfo
 
-# Drizzle
-drizzle
-
 # Debug files
 vercel-debug.txt
 
