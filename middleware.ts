@@ -102,26 +102,6 @@ export default withAuth(
     const { pathname } = req.nextUrl
     const token = req.nextauth.token
 
-    // FIRST: Handle www redirect (before any other logic)
-    const host = req.headers.get('host') || '';
-
-    // Only redirect if:
-    // 1. Not localhost/development
-    // 2. Doesn't already have www
-    // 3. Not a Cloud Run internal URL
-    if (host &&
-      !host.startsWith('localhost') &&
-      !host.startsWith('127.0.0.1') &&
-      !host.startsWith('www.') &&
-      !host.includes('.run.app')) { // Don't redirect Cloud Run URLs
-
-      const wwwUrl = req.nextUrl.clone();
-      wwwUrl.host = `www.${host}`;
-
-      console.log(`Redirecting from ${host} to www.${host}`);
-      return NextResponse.redirect(wwwUrl, 301); // Permanent redirect
-    }
-
     // Remove debug logs now that issue is fixed
 
     // ABSOLUTE FIRST: Check authentication - ZERO license logic for unauthenticated users
