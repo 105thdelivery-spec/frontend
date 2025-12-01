@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Standalone output for Docker/Cloud Run deployment
+  output: 'standalone',
+
   images: {
     remotePatterns: [
       {
