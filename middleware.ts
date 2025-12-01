@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 // Simple in-memory cache for license checks to prevent flashing
-const licenseCache = new Map<string, { 
+const licenseCache = new Map<string, {
   result: { valid: boolean; globallyVerified?: boolean; error?: string; },
   timestamp: number,
   ttl: number
@@ -14,7 +14,7 @@ const CACHE_TTL_VALID = 30 * 1000;
 const CACHE_TTL_INVALID = 5 * 1000;
 
 // Request deduplication - prevent multiple simultaneous calls for the same domain
-const pendingRequests = new Map<string, Promise<{valid: boolean, globallyVerified?: boolean, error?: string}>>();
+const pendingRequests = new Map<string, Promise<{ valid: boolean, globallyVerified?: boolean, error?: string }>>();
 
 // Track navigation sessions to provide grace period
 const navigationSessions = new Map<string, { firstAccess: number, allowedUntil: number }>();
@@ -59,18 +59,18 @@ function getPersistentLicenseSession(req: NextRequest, domain: string): { verifi
   try {
     const cookieHeader = req.headers.get('cookie');
     if (!cookieHeader) return null;
-    
+
     const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
       const [key, value] = cookie.trim().split('=');
       acc[key] = value;
       return acc;
     }, {} as Record<string, string>);
-    
+
     const sessionCookie = cookies[LICENSE_SESSION_COOKIE];
     if (!sessionCookie) return null;
-    
+
     const sessionData = JSON.parse(decodeURIComponent(sessionCookie));
-    
+
     // Verify the session is for this domain and still valid
     if (sessionData.domain === domain && sessionData.expiresAt > Date.now()) {
       return {
@@ -78,7 +78,7 @@ function getPersistentLicenseSession(req: NextRequest, domain: string): { verifi
         expiresAt: sessionData.expiresAt
       };
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error reading persistent license session:', error);
@@ -93,7 +93,7 @@ function createPersistentLicenseSession(domain: string): string {
     expiresAt: Date.now() + PERSISTENT_SESSION_DURATION,
     timestamp: Date.now()
   };
-  
+
   return encodeURIComponent(JSON.stringify(sessionData));
 }
 
@@ -101,6 +101,26 @@ export default withAuth(
   async function middleware(req) {
     const { pathname } = req.nextUrl
     const token = req.nextauth.token
+
+    // FIRST: Handle www redirect (before any other logic)
+    const host = req.headers.get('host') || '';
+
+    // Only redirect if:
+    // 1. Not localhost/development
+    // 2. Doesn't already have www
+    // 3. Not a Cloud Run internal URL
+    if (host &&
+      !host.startsWith('localhost') &&
+      !host.startsWith('127.0.0.1') &&
+      !host.startsWith('www.') &&
+      !host.includes('.run.app')) { // Don't redirect Cloud Run URLs
+
+      const wwwUrl = req.nextUrl.clone();
+      wwwUrl.host = `www.${host}`;
+
+      console.log(`Redirecting from ${host} to www.${host}`);
+      return NextResponse.redirect(wwwUrl, 301); // Permanent redirect
+    }
 
     // Remove debug logs now that issue is fixed
 
@@ -110,7 +130,7 @@ export default withAuth(
       if (isPublicRoute(pathname)) {
         return NextResponse.next();
       }
-      
+
       // If it's a protected route, redirect to register immediately
       return NextResponse.redirect(new URL('/register', req.url));
     }
@@ -149,7 +169,7 @@ function isPublicRoute(pathname: string): boolean {
     '/debug/connection-test',
     '/test-admin-connection'
   ]
-  
+
   const publicApiRoutes = [
     '/api/auth/',
     '/api/email/',
@@ -158,17 +178,17 @@ function isPublicRoute(pathname: string): boolean {
     // Debug API routes - accessible without authentication
     '/api/debug/'
   ]
-  
+
   // Check exact matches for pages
   if (publicRoutes.includes(pathname)) {
     return true
   }
-  
+
   // Check API route prefixes
   if (publicApiRoutes.some(route => pathname.startsWith(route))) {
     return true
   }
-  
+
   return false
 }
 
@@ -185,7 +205,7 @@ function isLicenseExemptRoute(pathname: string): boolean {
     '/test-admin-connection',
     '/api/debug/'
   ]
-  
+
   return exemptRoutes.some(route => pathname.startsWith(route))
 }
 
@@ -197,38 +217,38 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
     const browserGracePeriod = getGracePeriodForBrowser(userAgent);
     const isMobileBrowser = isMobile(userAgent);
     const isIOSDevice = isiOS(userAgent);
-    
-    console.log('Middleware license check by domain:', { 
-      currentDomain, 
+
+    console.log('Middleware license check by domain:', {
+      currentDomain,
       pathname: req.nextUrl.pathname,
       isMobile: isMobileBrowser,
       isIOS: isIOSDevice,
       isSafari: isSafari(userAgent),
       gracePeriod: browserGracePeriod
     });
-    
+
     // Prevent redirect loops - if already on license-setup, be more lenient
     const isOnLicenseSetup = req.nextUrl.pathname === '/license-setup';
-    
+
     // FIRST: Check for persistent license session (survives page refreshes)
     const persistentSession = getPersistentLicenseSession(req, currentDomain);
     if (persistentSession && persistentSession.verified && persistentSession.expiresAt > Date.now()) {
       console.log('Valid persistent license session found, allowing access (page refresh safe)');
       return null; // Allow access based on persistent session
     }
-    
+
     // For mobile browsers and iOS, be VERY conservative - always allow access initially
     if (isMobileBrowser || isIOSDevice) {
       const sessionKey = currentDomain + '_mobile';
       const session = navigationSessions.get(sessionKey);
       const now = Date.now();
-      
+
       // Check if we have a long-term mobile session
       if (session && now < session.allowedUntil) {
         console.log('Mobile device within extended grace period, allowing access');
         return null;
       }
-      
+
       // Create or extend mobile session - very long duration
       if (!session || now >= session.allowedUntil) {
         console.log('Creating extended mobile session for navigation');
@@ -236,39 +256,39 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
           firstAccess: session?.firstAccess || now,
           allowedUntil: now + browserGracePeriod // 60 seconds for mobile
         });
-        
+
         // Start very delayed background check for mobile
         setTimeout(() => {
           console.log('Starting delayed background license check for mobile');
           checkLicenseInBackground(currentDomain);
         }, 2000); // 2 second delay for mobile
-        
+
         return null; // Always allow access for mobile initially
       }
     }
-    
+
     // Desktop browser logic (original logic but more conservative)
     const sessionKey = currentDomain;
     const session = navigationSessions.get(sessionKey);
     const now = Date.now();
-    
+
     if (session && now < session.allowedUntil) {
       console.log('Within navigation grace period, allowing access');
       return null; // Allow access during grace period
     }
-    
+
     // Check cache first to avoid expensive API calls
     const cachedResult = getCachedLicenseResult(currentDomain);
     if (cachedResult) {
       console.log('Using cached license result for domain:', currentDomain);
-      
+
       // If license is valid, update/create navigation session AND set persistent cookie
       if (cachedResult.valid && cachedResult.globallyVerified) {
         navigationSessions.set(sessionKey, {
           firstAccess: session?.firstAccess || now,
           allowedUntil: now + browserGracePeriod
         });
-        
+
         // Create persistent session for page refreshes
         const cookieValue = createPersistentLicenseSession(currentDomain);
         const response = NextResponse.next();
@@ -280,10 +300,10 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
         });
         return response;
       }
-      
+
       return handleLicenseResult(cachedResult, isOnLicenseSetup, req, true);
     }
-    
+
     // If no cache and no grace period, start a grace period for new sessions
     if (!session) {
       console.log('Starting navigation grace period for new desktop session');
@@ -291,21 +311,21 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
         firstAccess: now,
         allowedUntil: now + browserGracePeriod
       });
-      
+
       // For Safari desktop, be conservative
       if (isSafari(userAgent)) {
         console.log('Desktop Safari detected: allowing immediate access');
         setTimeout(() => checkLicenseInBackground(currentDomain), 500);
         return null;
       }
-      
+
       // Start background license check but don't wait for it
       checkLicenseInBackground(currentDomain);
-      
+
       // Allow access during initial grace period
       return null;
     }
-    
+
     // Grace period expired for desktop, need to check license
     // But still be very conservative about redirecting
     let licenseResult;
@@ -316,7 +336,7 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
       // Create new request and cache it
       const requestPromise = checkLicenseByDomain(currentDomain);
       pendingRequests.set(currentDomain, requestPromise);
-      
+
       try {
         licenseResult = await requestPromise;
         // Cache the result
@@ -326,14 +346,14 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
         pendingRequests.delete(currentDomain);
       }
     }
-    
+
     // If license is valid, extend the grace period AND set persistent cookie
     if (licenseResult.valid && licenseResult.globallyVerified) {
       navigationSessions.set(sessionKey, {
         firstAccess: session?.firstAccess || now,
         allowedUntil: now + browserGracePeriod
       });
-      
+
       // Create persistent session for page refreshes
       const cookieValue = createPersistentLicenseSession(currentDomain);
       const response = NextResponse.next();
@@ -345,31 +365,31 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
       });
       return response;
     }
-    
+
     return handleLicenseResult(licenseResult, isOnLicenseSetup, req, false);
-    
+
   } catch (error) {
     console.error('License check error in middleware:', error);
-    
+
     // Get current domain and user agent for error handling
     const currentDomain = (req.headers.get('host') || req.nextUrl.hostname).toLowerCase();
     const userAgent = req.headers.get('user-agent') || '';
-    
+
     // For mobile/iOS, NEVER redirect on error - always allow access
     if (isMobile(userAgent) || isiOS(userAgent)) {
       console.log('Mobile device error handling: allowing access');
       return null;
     }
-    
+
     // On error, only redirect if not already on license-setup and not in grace period
     const isOnLicenseSetup = req.nextUrl.pathname === '/license-setup';
     const session = navigationSessions.get(currentDomain);
     const inGracePeriod = session && Date.now() < session.allowedUntil;
-    
+
     if (!isOnLicenseSetup && !inGracePeriod) {
       return NextResponse.redirect(new URL('/license-setup', req.url));
     }
-    
+
     return null;
   }
 }
@@ -377,14 +397,14 @@ async function checkLicenseMiddleware(req: NextRequest): Promise<NextResponse | 
 function getCachedLicenseResult(domain: string): { valid: boolean; globallyVerified?: boolean; error?: string; } | null {
   const cached = licenseCache.get(domain);
   if (!cached) return null;
-  
+
   const now = Date.now();
   if (now > cached.timestamp + cached.ttl) {
     // Cache expired
     licenseCache.delete(domain);
     return null;
   }
-  
+
   return cached.result;
 }
 
@@ -424,7 +444,7 @@ function handleLicenseResult(
     console.log('No license found for domain, redirecting to setup');
     return NextResponse.redirect(new URL('/license-setup', req.url));
   }
-  
+
   if (licenseResult.valid && !licenseResult.globallyVerified) {
     if (isOnLicenseSetup || allowGracefulDegradation) {
       // Already on license setup page or allowing graceful degradation, allow them to complete the setup
@@ -434,34 +454,34 @@ function handleLicenseResult(
     console.log('License found but not verified, redirecting to setup');
     return NextResponse.redirect(new URL('/license-setup', req.url));
   }
-  
+
   if (licenseResult.valid && licenseResult.globallyVerified) {
     console.log('License check passed for domain');
     // License is valid and verified, continue
     return null;
   }
-  
+
   // Fallback - only redirect if not already on license-setup and not allowing graceful degradation
   if (!isOnLicenseSetup && !allowGracefulDegradation) {
     return NextResponse.redirect(new URL('/license-setup', req.url));
   }
-  
+
   return null;
 }
 
 // Helper function for domain-based license check in middleware with timeout
-async function checkLicenseByDomain(domain: string): Promise<{valid: boolean, globallyVerified?: boolean, error?: string}> {
+async function checkLicenseByDomain(domain: string): Promise<{ valid: boolean, globallyVerified?: boolean, error?: string }> {
   try {
     // Use the new API endpoint that checks by domain
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     const url = `${baseUrl}/api/license/check-by-domain`;
-    
+
     console.log('Checking license for domain in middleware:', domain);
-    
+
     // Add timeout to prevent long waits
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -480,14 +500,14 @@ async function checkLicenseByDomain(domain: string): Promise<{valid: boolean, gl
         // Safari-specific cache prevention
         cache: 'no-store'
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         console.log('Domain license check failed with status:', response.status);
         return { valid: false, error: `No license found for domain` };
       }
-      
+
       const data = await response.json();
       return {
         valid: data.valid === true,
