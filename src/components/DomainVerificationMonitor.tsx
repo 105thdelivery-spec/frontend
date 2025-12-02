@@ -61,7 +61,72 @@ export default function DomainVerificationMonitor({
       isCheckingRef.current = true;
       const currentDomain = window.location.hostname;
 
-      // Check cache first
+      // FIRST: Check if we already have a persistent license session cookie
+      // This means the domain was already verified and licensed
+      const cookieCheck = document.cookie
+        .split(';')
+        .find(c => c.trim().startsWith('license_session='));
+      
+      if (cookieCheck) {
+        try {
+          const sessionValue = decodeURIComponent(cookieCheck.split('=')[1]);
+          const sessionData = JSON.parse(sessionValue);
+          
+          // If session is for current domain, still valid, and verified
+          if (sessionData.domain === currentDomain && 
+              sessionData.expiresAt > Date.now() && 
+              sessionData.verified) {
+            console.log('Found valid license session cookie, skipping domain verification');
+            setDomainStatus('valid');
+            
+            // Cache this success to prevent future unnecessary checks
+            localStorage.setItem('domain_verification_cache', JSON.stringify({
+              timestamp: Date.now(),
+              domain: currentDomain,
+              status: 'valid'
+            }));
+            return;
+          }
+        } catch (e) {
+          console.warn('Error parsing license session cookie', e);
+        }
+      }
+
+      // SECOND: Check license verification status via API
+      // This API call checks if domain has a globally verified license
+      try {
+        const licenseResponse = await fetch('/api/license/check-by-domain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            domain: currentDomain
+          })
+        });
+
+        if (licenseResponse.ok) {
+          const licenseResult = await licenseResponse.json();
+          
+          // If license is valid and globally verified, no need to check domain registration
+          if (licenseResult.valid && licenseResult.globallyVerified) {
+            console.log('Domain has valid globally verified license, skipping domain registration check');
+            setDomainStatus('valid');
+            
+            // Cache this success
+            localStorage.setItem('domain_verification_cache', JSON.stringify({
+              timestamp: Date.now(),
+              domain: currentDomain,
+              status: 'valid'
+            }));
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('License check failed, proceeding with domain registration check', e);
+      }
+
+      // THIRD: Check cache for domain registration
       const cached = localStorage.getItem('domain_verification_cache');
       if (cached) {
         try {

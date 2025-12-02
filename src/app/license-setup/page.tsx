@@ -18,19 +18,16 @@ export default function LicenseSetupPage() {
   const [currentDomain, setCurrentDomain] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [connectionError, setConnectionError] = useState('');
+  
+  // New states for handling silent verification
+  const [isDoingSilentVerification, setIsDoingSilentVerification] = useState(true);
+  const [silentVerificationComplete, setSilentVerificationComplete] = useState(false);
+  const [needsLicenseSetup, setNeedsLicenseSetup] = useState(false);
 
   useEffect(() => {
     setCurrentDomain(getCurrentDomain());
-    // Automatically test connection when page loads
-    testConnection();
     
-    // Check if there's already a globally verified license for this domain
-    // Add a small delay to prevent race conditions with middleware
-    const timer = setTimeout(() => {
-      checkExistingLicense();
-    }, 500);
-    
-    // Check if redirected here due to domain verification failure
+    // Check URL parameters for specific errors FIRST (these bypass silent verification)
     const urlParams = new URLSearchParams(window.location.search);
     const errorType = urlParams.get('error');
     const status = urlParams.get('status');
@@ -38,27 +35,86 @@ export default function LicenseSetupPage() {
     
     if (errorType === 'domain_not_found') {
       setError('This domain is not registered in the admin panel. Please contact your administrator to register this domain as a SAAS client.');
+      setIsDoingSilentVerification(false);
+      setSilentVerificationComplete(true);
+      setNeedsLicenseSetup(true);
+      testConnection();
+      return;
     } else if (errorType === 'client_status') {
       setError(`Your SAAS client account status is "${status}" and not active. Please contact your administrator to activate your account.`);
+      setIsDoingSilentVerification(false);
+      setSilentVerificationComplete(true);
+      setNeedsLicenseSetup(true);
+      testConnection();
+      return;
     } else if (errorType === 'subscription_status') {
       setError(`Your subscription status is "${status}" and not active. Please contact your administrator to renew your subscription.`);
+      setIsDoingSilentVerification(false);
+      setSilentVerificationComplete(true);
+      setNeedsLicenseSetup(true);
+      testConnection();
+      return;
     } else if (errorType === 'subscription_expired') {
       const expiryDate = expiry ? new Date(expiry).toLocaleDateString() : 'unknown';
       setError(`Your subscription expired on ${expiryDate}. Please contact your administrator to renew your subscription.`);
+      setIsDoingSilentVerification(false);
+      setSilentVerificationComplete(true);
+      setNeedsLicenseSetup(true);
+      testConnection();
+      return;
     }
+
+    // No specific errors in URL, perform silent verification
+    // This handles the case where user was redirected here due to connectivity issues
+    const timer = setTimeout(() => {
+      performSilentVerification();
+      testConnection(); // Test connection in parallel
+    }, 100); // Very small delay to allow component to initialize
 
     return () => clearTimeout(timer);
   }, []);
 
-  const checkExistingLicense = async () => {
+  const performSilentVerification = async () => {
     try {
+      console.log('Starting silent license verification...');
+      setIsDoingSilentVerification(true);
+      
+      const currentDomainValue = currentDomain || window.location.hostname;
+
+      // STEP 1: Check if we have a valid license session cookie
+      const cookieCheck = document.cookie
+        .split(';')
+        .find(c => c.trim().startsWith('license_session='));
+      
+      if (cookieCheck) {
+        try {
+          const sessionValue = decodeURIComponent(cookieCheck.split('=')[1]);
+          const sessionData = JSON.parse(sessionValue);
+          
+          // If session is for current domain, still valid, and verified
+          if (sessionData.domain === currentDomainValue && 
+              sessionData.expiresAt > Date.now() && 
+              sessionData.verified) {
+            console.log('Silent verification: Found valid license session cookie, redirecting to home');
+            // Small delay to show loading state briefly
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 500);
+            return;
+          }
+        } catch (e) {
+          console.warn('Error parsing license session cookie', e);
+        }
+      }
+
+      // STEP 2: Check license status via API
       const response = await fetch('/api/license/check-by-domain', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          domain: currentDomain || window.location.hostname
+          domain: currentDomainValue
         })
       });
 
@@ -66,22 +122,38 @@ export default function LicenseSetupPage() {
         const result = await response.json();
         if (result.valid && result.globallyVerified) {
           // License is already globally verified, redirect to home
-          // Only redirect if we're confident the license is truly valid
-          console.log('License already globally verified, redirecting to home');
-          // Use window.location.href for more reliable redirect that bypasses middleware issues
-          window.location.href = '/';
+          console.log('Silent verification: License already globally verified via API, redirecting to home');
+          // Small delay to show loading state briefly
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 500);
           return;
         }
         if (result.valid && !result.globallyVerified && result.licenseKey) {
-          // License exists but not verified, pre-fill the form
+          // License exists but not verified, pre-fill the form and show setup UI
+          console.log('Silent verification: Found existing license key for domain, showing setup form');
           setLicenseKey(result.licenseKey);
-          console.log('Found existing license key for domain');
+          setNeedsLicenseSetup(true);
+          setSilentVerificationComplete(true);
+          setIsDoingSilentVerification(false);
+          return;
         }
       }
+
+      // STEP 3: No existing license found, need to show setup form
+      console.log('Silent verification: No existing license found, showing setup form');
+      setNeedsLicenseSetup(true);
+      setSilentVerificationComplete(true);
+      setIsDoingSilentVerification(false);
+      
     } catch (error) {
-      console.log('No existing license found for domain:', error);
-      // Silently handle error - don't redirect or set error state
-      // This prevents redirect loops when license check fails
+      console.log('Silent verification failed:', error);
+      // On error, show the setup form after a brief delay
+      setTimeout(() => {
+        setNeedsLicenseSetup(true);
+        setSilentVerificationComplete(true);
+        setIsDoingSilentVerification(false);
+      }, 1000);
     }
   };
 
@@ -181,6 +253,54 @@ export default function LicenseSetupPage() {
       setLoading(false);
     }
   };
+
+  // Show loading state during silent verification
+  if (isDoingSilentVerification) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8 text-center">
+            <div className="mx-auto mb-6 w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Verifying License...
+            </h2>
+            <p className="text-gray-600 mb-4">
+              Please wait while we verify your license status
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-3">
+              This should only take a moment...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show normal license setup form only if silent verification determined it's needed
+  if (!needsLicenseSetup) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-8 pb-8 text-center">
+            <div className="mx-auto mb-6 w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              License Verified
+            </h2>
+            <p className="text-gray-600">
+              Redirecting to your dashboard...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
