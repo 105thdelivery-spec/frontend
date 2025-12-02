@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
@@ -39,6 +39,19 @@ function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading } = useTheme();
+  
+  // Add session check for authenticated users
+  const { data: session, status } = useSession();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading session
+    if (session) {
+      // User is already logged in, redirect to dashboard
+      router.push('/dashboard');
+      return;
+    }
+  }, [session, status, router]);
 
   useEffect(() => {
     const magic = searchParams.get('magic');
@@ -142,6 +155,16 @@ function RegisterContent() {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return <RegisterPageLoading />;
+  }
+
+  // Don't render anything if user is authenticated (we're redirecting)
+  if (session) {
+    return <RegisterPageLoading />;
+  }
 
   return (
     <>
