@@ -45,13 +45,13 @@ export async function getLoyaltySettings() {
     const settingsObj: { [key: string]: any } = {};
     loyaltySettings.forEach(setting => {
       let value: any = setting.value;
-      
+
       if (setting.key === 'loyalty_enabled') {
         value = value === 'true';
       } else if (setting.key.includes('rate') || setting.key.includes('value') || setting.key.includes('minimum') || setting.key.includes('percent') || setting.key.includes('months')) {
         value = parseFloat(value) || 0;
       }
-      
+
       settingsObj[setting.key] = value;
     });
 
@@ -88,7 +88,7 @@ async function getStockManagementSettingDirect() {
       .from(settings)
       .where(eq(settings.key, 'stock_management_enabled'))
       .limit(1);
-    
+
     return setting.length > 0 ? setting[0].value === 'true' : false;
   } catch (error) {
     console.error('Error fetching stock management setting:', error);
@@ -165,7 +165,7 @@ export async function processCheckout(formData: FormData) {
 
     console.log('📦 Order Type from form:', orderTypeFromForm);
     console.log('📦 Order Type in checkoutData:', checkoutData.orderType);
-    
+
     // Validate order type
     if (!['delivery', 'pickup', 'shipping'].includes(checkoutData.orderType)) {
       console.error('⚠️ Invalid order type received:', checkoutData.orderType);
@@ -260,19 +260,19 @@ export async function processCheckout(formData: FormData) {
       discountAmount: checkoutData.pointsDiscountAmount.toString(),
       totalAmount: finalTotal.toString(),
       currency: 'USD',
-      
+
       // Order type and pickup location fields
       orderType: checkoutData.orderType, // Remove the || 'delivery' fallback to see actual value
       pickupLocationId: checkoutData.pickupLocationId || null,
-      
+
       // Driver assignment fields
       assignedDriverId: null,
       deliveryStatus: 'pending',
-      
+
       // Loyalty points fields
       pointsToRedeem: checkoutData.pointsToRedeem,
       pointsDiscountAmount: checkoutData.pointsDiscountAmount.toString(),
-      
+
       // Addresses (for delivery and shipping orders)
       billingFirstName: checkoutData.customerInfo.name?.split(' ')[0] || null,
       billingLastName: checkoutData.customerInfo.name?.split(' ').slice(1).join(' ') || null,
@@ -281,7 +281,7 @@ export async function processCheckout(formData: FormData) {
       billingState: checkoutData.deliveryAddress?.state || null,
       billingPostalCode: checkoutData.deliveryAddress?.zipCode || null,
       billingCountry: 'US',
-      
+
       shippingFirstName: checkoutData.customerInfo.name?.split(' ')[0] || null,
       shippingLastName: checkoutData.customerInfo.name?.split(' ').slice(1).join(' ') || null,
       shippingAddress1: checkoutData.deliveryAddress?.street || null,
@@ -291,7 +291,7 @@ export async function processCheckout(formData: FormData) {
       shippingCountry: 'US',
       shippingLatitude: checkoutData.deliveryAddress?.latitude || null,
       shippingLongitude: checkoutData.deliveryAddress?.longitude || null,
-      
+
       notes: checkoutData.orderNotes || null,
       deliveryInstructions: checkoutData.deliveryAddress?.instructions || null,
       createdAt: new Date(),
@@ -299,14 +299,14 @@ export async function processCheckout(formData: FormData) {
     });
 
     console.log(`✅ Order created with type: ${checkoutData.orderType}`);
-    
+
     // Verify what was saved by reading it back
     const savedOrder = await db
       .select({ orderType: orders.orderType })
       .from(orders)
       .where(eq(orders.id, orderId))
       .limit(1);
-    
+
     if (savedOrder.length > 0) {
       console.log(`✅ Verified order_type in database: ${savedOrder[0].orderType}`);
       if (savedOrder[0].orderType !== checkoutData.orderType) {
@@ -321,13 +321,13 @@ export async function processCheckout(formData: FormData) {
     for (const item of checkoutData.items) {
       console.log('=== PROCESSING CART ITEM ===');
       console.log('Full item:', JSON.stringify(item, null, 2));
-      
+
       const productId = item.product?.id || item.id;
       const productName = item.product?.name || item.name;
       const quantity = item.quantity || 1;
       const numericValue = item.numericValue; // Weight in grams for weight-based products
       const price = item.product?.price || item.price || 0;
-      
+
       console.log(`Product: ${productName}`);
       console.log(`Quantity: ${quantity}`);
       console.log(`numericValue: ${numericValue}`);
@@ -337,10 +337,10 @@ export async function processCheckout(formData: FormData) {
       let costPrice = null;
       let comparePrice = null;
       let totalCost = null;
-      
+
       // Check both possible locations for variantId
       const variantId = item.variantId || item.product?.variantId;
-      
+
       // Debug logging for variant detection
       console.log(`Checking variant for ${productName}:`, {
         itemVariantId: item.variantId,
@@ -348,7 +348,7 @@ export async function processCheckout(formData: FormData) {
         finalVariantId: variantId,
         selectedAttributes: item.product?.selectedAttributes
       });
-      
+
       try {
         if (variantId) {
           // Get cost price and compare price from variant
@@ -429,7 +429,7 @@ export async function processCheckout(formData: FormData) {
           // Get product to determine stock management type
           const productDetails = await db.query.products.findFirst({
             where: eq(products.id, productId),
-            columns: { stockManagementType: true }
+            columns: { stockManagementType: true, productType: true }
           });
 
           if (!productDetails) {
@@ -438,21 +438,33 @@ export async function processCheckout(formData: FormData) {
           }
 
           const isWeightBased = productDetails.stockManagementType === 'weight';
+          const isWeightBasedVariable = isWeightBased && productDetails.productType === 'variable';
+
+          // For weight-based variable products, ALWAYS use product-level inventory (variantId = null)
+          const inventoryLookupVariantId = isWeightBasedVariable ? null : variantId;
+
+          console.log(`Inventory lookup for ${productName}:`, {
+            productType: productDetails.productType,
+            stockManagementType: productDetails.stockManagementType,
+            isWeightBasedVariable,
+            originalVariantId: variantId,
+            inventoryLookupVariantId
+          });
 
           // Find inventory record
           const inventory = await db
             .select()
             .from(productInventory)
             .where(
-              variantId 
+              inventoryLookupVariantId
                 ? and(
-                    eq(productInventory.productId, productId),
-                    eq(productInventory.variantId, variantId)
-                  )!
+                  eq(productInventory.productId, productId),
+                  eq(productInventory.variantId, inventoryLookupVariantId)
+                )!
                 : and(
-                    eq(productInventory.productId, productId),
-                    isNull(productInventory.variantId)
-                  )!
+                  eq(productInventory.productId, productId),
+                  isNull(productInventory.variantId)
+                )!
             )
             .limit(1);
 
@@ -466,25 +478,26 @@ export async function processCheckout(formData: FormData) {
               // Use numericValue for weight-based products (e.g., 100g, 250g, 500g)
               // If numericValue is not available, fall back to quantity * some default
               const requestedWeight = numericValue || quantity;
-              
+
               console.log('=== WEIGHT-BASED DEDUCTION ===');
               console.log(`Product: ${productName}`);
               console.log(`quantity: ${quantity}`);
               console.log(`numericValue: ${numericValue}`);
               console.log(`requestedWeight (will deduct): ${requestedWeight}g`);
               console.log(`currentWeightQuantity: ${currentWeightQuantity}g`);
-              console.log(`variantId: ${variantId}`);
-              
+              console.log(`isWeightBasedVariable: ${isWeightBasedVariable}`);
+              console.log(`inventoryLookupVariantId: ${inventoryLookupVariantId}`);
+
               // Alert to show what we're about to deduct
               if (!numericValue) {
                 console.error('⚠️ WARNING: numericValue is missing! Using quantity instead:', quantity);
               } else {
                 console.log(`✓ Using numericValue: ${numericValue}g`);
               }
-              
+
               const newWeightQuantity = currentWeightQuantity - requestedWeight;
               const newAvailableWeight = newWeightQuantity - currentReservedWeight;
-              
+
               // Show deduction info
               console.log(`🔄 DEDUCTING FROM STOCK:\n\nProduct: ${productName}\nCurrent Stock: ${currentWeightQuantity}g\nWill Deduct: ${requestedWeight}g\nNew Stock: ${newWeightQuantity}g\n\nnumericValue from cart: ${numericValue || 'NOT SET'}\nUsing: ${requestedWeight}g`);
 
@@ -499,11 +512,12 @@ export async function processCheckout(formData: FormData) {
                 .where(eq(productInventory.id, currentInventory.id));
 
               // Create stock movement record
+              // For weight-based variable products, variantId should be null
               await db.insert(stockMovements).values({
                 id: uuidv4(),
                 inventoryId: currentInventory.id,
                 productId,
-                variantId: variantId || null,
+                variantId: isWeightBasedVariable ? null : (variantId || null),
                 movementType: 'out',
                 quantity: 0, // No quantity change for weight-based
                 previousQuantity: currentInventory.quantity || 0,
@@ -513,7 +527,7 @@ export async function processCheckout(formData: FormData) {
                 newWeightQuantity: newWeightQuantity.toString(),
                 reason: 'Order fulfillment',
                 reference: orderNumber,
-                notes: `Sold ${requestedWeight}g for order ${orderNumber}`,
+                notes: `Sold ${requestedWeight}g for order ${orderNumber}${isWeightBasedVariable ? ' (product-level inventory)' : ''}`,
                 costPrice: costPrice?.toString() || null,
                 processedBy: session.user.id,
                 createdAt: new Date(),
@@ -567,13 +581,13 @@ export async function processCheckout(formData: FormData) {
     if (loyaltySettings.enabled) {
       console.log(`\n=== LOYALTY POINTS EARNING ===`);
       console.log(`Settings: Rate=${loyaltySettings.earningRate}, Basis=${loyaltySettings.earningBasis}`);
-      
+
       // Calculate points based on original behavior (before fees were added)
       // Originally: total = subtotal + tax (where tax was 0), so total === subtotal
       const originalTotal = checkoutData.subtotal; // This maintains the original behavior
       const baseAmount = loyaltySettings.earningBasis === 'total' ? originalTotal : checkoutData.subtotal;
       const pointsToAward = Math.floor(baseAmount * loyaltySettings.earningRate);
-      
+
       if (pointsToAward > 0 && baseAmount >= loyaltySettings.minimumOrder) {
         // Get or create user loyalty points record
         const existingPoints = await db
@@ -610,7 +624,7 @@ export async function processCheckout(formData: FormData) {
         }
 
         // Add earning history
-        const expiresAt = loyaltySettings.expiryMonths > 0 
+        const expiresAt = loyaltySettings.expiryMonths > 0
           ? new Date(Date.now() + (loyaltySettings.expiryMonths * 30 * 24 * 60 * 60 * 1000))
           : null;
 
@@ -628,7 +642,7 @@ export async function processCheckout(formData: FormData) {
           expiresAt,
           isExpired: false,
           processedBy: null,
-          metadata: { 
+          metadata: {
             source: 'order_checkout',
             earningRate: loyaltySettings.earningRate,
             earningBasis: loyaltySettings.earningBasis
@@ -648,7 +662,7 @@ export async function processCheckout(formData: FormData) {
     try {
       console.log(`\n=== UPDATING USER PROFILE ===`);
       console.log(`Updating user ${session.user.id} with checkout data`);
-      
+
       await db.update(user)
         .set({
           name: checkoutData.customerInfo.name || undefined,
@@ -663,7 +677,7 @@ export async function processCheckout(formData: FormData) {
           updatedAt: new Date()
         })
         .where(eq(user.id, session.user.id));
-      
+
       console.log(`✅ User profile updated successfully`);
     } catch (error) {
       console.error('Error updating user profile:', error);
@@ -713,12 +727,12 @@ export async function getOrderSettings() {
     const settingsObj: { [key: string]: any } = {};
     orderSettings.forEach(setting => {
       let value: any = setting.value;
-      
+
       // Parse numeric values
       if (setting.type === 'number' || setting.key.includes('fee') || setting.key.includes('value')) {
         value = parseFloat(value) || 0;
       }
-      
+
       settingsObj[setting.key] = value;
     });
 
