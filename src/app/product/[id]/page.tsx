@@ -153,8 +153,21 @@ export default function ProductDetails() {
   // Fetch inventory information
   const fetchInventory = useCallback(async (productId: string, variantId: string | null) => {
     try {
-      // Determine if this is a weight-based product
+      // Determine if this is a weight-based variable product
       const isWeightBased = product?.stockManagementType === 'weight';
+      const isWeightBasedVariable = isWeightBased && product?.productType === 'variable';
+
+      // For weight-based variable products, ALWAYS use product-level inventory (variantId = null)
+      const inventoryLookupVariantId = isWeightBasedVariable ? null : variantId;
+
+      console.log('Fetching inventory:', {
+        productId,
+        originalVariantId: variantId,
+        isWeightBasedVariable,
+        inventoryLookupVariantId,
+        productType: product?.productType,
+        stockManagementType: product?.stockManagementType
+      });
 
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
@@ -163,7 +176,7 @@ export default function ProductDetails() {
         },
         body: JSON.stringify({
           productId,
-          variantId,
+          variantId: inventoryLookupVariantId,
           requestedQuantity: !isWeightBased ? 1 : undefined,
           requestedWeight: isWeightBased ? 1 : undefined,
         }),

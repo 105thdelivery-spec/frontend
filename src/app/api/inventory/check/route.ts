@@ -11,7 +11,7 @@ async function getStockManagementSetting() {
       .from(settings)
       .where(eq(settings.key, 'stock_management_enabled'))
       .limit(1);
-    
+
     return setting.length > 0 ? setting[0].value === 'true' : false;
   } catch (error) {
     console.error('Error fetching stock management setting:', error);
@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     const { productId, variantId, requestedQuantity, requestedWeight } = await req.json();
 
     if (!productId) {
-      return NextResponse.json({ 
-        error: 'Product ID is required' 
+      return NextResponse.json({
+        error: 'Product ID is required'
       }, { status: 400 });
     }
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     // Get product info to check stock management type
     const product = await db.query.products.findFirst({
       where: eq(products.id, productId),
-      columns: { 
+      columns: {
         stockManagementType: true,
         name: true,
         productType: true
@@ -62,32 +62,46 @@ export async function POST(req: NextRequest) {
     });
 
     if (!product) {
-      return NextResponse.json({ 
-        error: 'Product not found' 
+      return NextResponse.json({
+        error: 'Product not found'
       }, { status: 404 });
     }
 
     const isWeightBased = isWeightBasedProduct(product.stockManagementType || 'quantity');
+    const isWeightBasedVariable = isWeightBased && product.productType === 'variable';
+
+    // For weight-based variable products, ALWAYS use product-level inventory (variantId = null)
+    const inventoryLookupVariantId = isWeightBasedVariable ? null : variantId;
+
+    console.log('Inventory check:', {
+      productId,
+      productName: product.name,
+      productType: product.productType,
+      stockManagementType: product.stockManagementType,
+      isWeightBasedVariable,
+      originalVariantId: variantId,
+      inventoryLookupVariantId
+    });
 
     // Validate required parameters based on stock management type
     if (isWeightBased && !requestedWeight && requestedWeight !== 0) {
-      return NextResponse.json({ 
-        error: 'Requested weight is required for weight-based products' 
+      return NextResponse.json({
+        error: 'Requested weight is required for weight-based products'
       }, { status: 400 });
     }
 
     if (!isWeightBased && !requestedQuantity && requestedQuantity !== 0) {
-      return NextResponse.json({ 
-        error: 'Requested quantity is required for quantity-based products' 
+      return NextResponse.json({
+        error: 'Requested quantity is required for quantity-based products'
       }, { status: 400 });
     }
 
     // Find inventory record
-    const whereConditions = variantId 
+    const whereConditions = inventoryLookupVariantId
       ? and(
-          eq(productInventory.productId, productId),
-          eq(productInventory.variantId, variantId)
-        )
+        eq(productInventory.productId, productId),
+        eq(productInventory.variantId, inventoryLookupVariantId)
+      )
       : eq(productInventory.productId, productId);
 
     const inventory = await db
@@ -124,8 +138,8 @@ export async function POST(req: NextRequest) {
         isWeightBased: true,
         availableWeight,
         requestedWeight: requestedWeight || 0,
-        message: isAvailable 
-          ? 'Stock available' 
+        message: isAvailable
+          ? 'Stock available'
           : `Only ${availableWeight}g available`
       });
     } else {
@@ -140,16 +154,16 @@ export async function POST(req: NextRequest) {
         isWeightBased: false,
         availableQuantity,
         requestedQuantity: requestedQuantity || 0,
-        message: isAvailable 
-          ? 'Stock available' 
+        message: isAvailable
+          ? 'Stock available'
           : `Only ${availableQuantity} units available`
       });
     }
 
   } catch (error) {
     console.error('Error checking inventory:', error);
-    return NextResponse.json({ 
-      error: 'Failed to check inventory' 
+    return NextResponse.json({
+      error: 'Failed to check inventory'
     }, { status: 500 });
   }
 }

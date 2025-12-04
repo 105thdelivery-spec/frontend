@@ -14,7 +14,7 @@ async function getStockManagementSettingDirect() {
       .from(settings)
       .where(eq(settings.key, 'stock_management_enabled'))
       .limit(1);
-    
+
     return setting.length > 0 ? setting[0].value === 'true' : false;
   } catch (error) {
     console.error('Error fetching stock management setting:', error);
@@ -43,14 +43,14 @@ async function getLoyaltySettings() {
   const settingsObj: { [key: string]: any } = {};
   loyaltySettings.forEach(setting => {
     let value: any = setting.value;
-    
+
     // Convert values based on the setting key
     if (setting.key === 'loyalty_enabled') {
       value = value === 'true';
     } else if (setting.key.includes('rate') || setting.key.includes('value') || setting.key.includes('minimum') || setting.key.includes('percent') || setting.key.includes('months')) {
       value = parseFloat(value) || 0;
     }
-    
+
     settingsObj[setting.key] = value;
   });
 
@@ -69,7 +69,7 @@ async function getLoyaltySettings() {
 // Award loyalty points for an order
 async function awardLoyaltyPoints(userId: string, orderId: string, orderAmount: number, subtotal: number, orderStatus: string) {
   const settings = await getLoyaltySettings();
-  
+
   if (!settings.enabled) {
     console.log('Loyalty program disabled, skipping points award');
     return;
@@ -77,21 +77,21 @@ async function awardLoyaltyPoints(userId: string, orderId: string, orderAmount: 
 
   // Calculate points based on earning basis
   const baseAmount = settings.earningBasis === 'total' ? orderAmount : subtotal;
-  
+
   if (baseAmount < settings.minimumOrder) {
     console.log(`Order amount ${baseAmount} below minimum ${settings.minimumOrder}, skipping points award`);
     return;
   }
 
   const pointsToAward = Math.floor(baseAmount * settings.earningRate);
-  
+
   if (pointsToAward <= 0) {
     console.log('No points to award');
     return;
   }
 
   // Calculate expiry date
-  const expiresAt = settings.expiryMonths > 0 
+  const expiresAt = settings.expiryMonths > 0
     ? new Date(Date.now() + (settings.expiryMonths * 30 * 24 * 60 * 60 * 1000))
     : null;
 
@@ -103,7 +103,7 @@ async function awardLoyaltyPoints(userId: string, orderId: string, orderAmount: 
     .limit(1);
 
   const status = orderStatus === 'completed' ? 'available' : 'pending';
-  const newBalance = status === 'available' 
+  const newBalance = status === 'available'
     ? (existingPoints[0]?.availablePoints || 0) + pointsToAward
     : (existingPoints[0]?.availablePoints || 0);
 
@@ -162,7 +162,7 @@ async function awardLoyaltyPoints(userId: string, orderId: string, orderAmount: 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -171,15 +171,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { 
-      items, 
-      total, 
-      subtotal, 
-      paymentMethod = 'cod', 
-      deliveryAddress, 
+    const {
+      items,
+      total,
+      subtotal,
+      paymentMethod = 'cod',
+      deliveryAddress,
       orderNotes,
       pointsRedeemed = 0,
-      pointsDiscount = 0 
+      pointsDiscount = 0
     } = body;
 
     // Validate required fields
@@ -204,18 +204,41 @@ export async function POST(req: NextRequest) {
         const productId = item.product?.id || item.id;
         const variantId = item.variantId || item.product?.variantId || null;
         const quantity = item.quantity || 1;
+        const numericValue = item.numericValue; // Weight in grams for weight-based products
+
+        // Get product details to determine stock management type
+        const productDetails = await db.query.products.findFirst({
+          where: eq(products.id, productId),
+          columns: { stockManagementType: true, productType: true }
+        });
+
+        if (!productDetails) {
+          return NextResponse.json({
+            error: `Product not found: ${item.product?.name || item.name}`
+          }, { status: 400 });
+        }
+
+        const isWeightBased = productDetails.stockManagementType === 'weight';
+        const isWeightBasedVariable = isWeightBased && productDetails.productType === 'variable';
+
+        // For weight-based variable products, ALWAYS check inventory at product level (variantId = null)
+        // For other products, use the provided variantId
+        const inventoryLookupVariantId = isWeightBasedVariable ? null : variantId;
 
         // Check inventory for this product/variant
         const inventory = await db
           .select()
           .from(productInventory)
           .where(
-            variantId 
+            inventoryLookupVariantId
               ? and(
-                  eq(productInventory.productId, productId),
-                  eq(productInventory.variantId, variantId)
-                )!
-              : eq(productInventory.productId, productId)
+                eq(productInventory.productId, productId),
+                eq(productInventory.variantId, inventoryLookupVariantId)
+              )!
+              : and(
+                eq(productInventory.productId, productId),
+                isNull(productInventory.variantId)
+              )!
           )
           .limit(1);
 
@@ -225,11 +248,23 @@ export async function POST(req: NextRequest) {
           }, { status: 400 });
         }
 
-        const availableQuantity = inventory[0].availableQuantity || 0;
-        if (availableQuantity < quantity) {
-          return NextResponse.json({
-            error: `Insufficient stock for ${item.product?.name || item.name}. Available: ${availableQuantity}, Requested: ${quantity}`
-          }, { status: 400 });
+        // Check available stock based on stock management type
+        if (isWeightBased) {
+          const availableWeight = parseFloat(inventory[0].availableWeight || '0');
+          const requestedWeight = numericValue || quantity;
+
+          if (availableWeight < requestedWeight) {
+            return NextResponse.json({
+              error: `Insufficient stock for ${item.product?.name || item.name}. Available: ${availableWeight}g, Requested: ${requestedWeight}g`
+            }, { status: 400 });
+          }
+        } else {
+          const availableQuantity = inventory[0].availableQuantity || 0;
+          if (availableQuantity < quantity) {
+            return NextResponse.json({
+              error: `Insufficient stock for ${item.product?.name || item.name}. Available: ${availableQuantity}, Requested: ${quantity}`
+            }, { status: 400 });
+          }
         }
       }
     }
@@ -240,7 +275,7 @@ export async function POST(req: NextRequest) {
       .from(user)
       .where(eq(user.id, session.user.id))
       .limit(1);
-    
+
     const userEmail = userQuery[0]?.email || session.user.email || '';
 
     // Create the order
@@ -259,15 +294,15 @@ export async function POST(req: NextRequest) {
       discountAmount: '0.00',
       totalAmount: total.toString(),
       currency: 'USD',
-      
+
       // Driver assignment fields
       assignedDriverId: null,
       deliveryStatus: 'pending',
-      
+
       // Loyalty points fields
       pointsToRedeem: pointsRedeemed || 0,
       pointsDiscountAmount: pointsDiscount.toString(),
-      
+
       // Billing address (same as shipping for now)
       billingFirstName: session.user.name?.split(' ')[0] || null,
       billingLastName: session.user.name?.split(' ').slice(1).join(' ') || null,
@@ -276,7 +311,7 @@ export async function POST(req: NextRequest) {
       billingState: deliveryAddress?.state || null,
       billingPostalCode: deliveryAddress?.zipCode || null,
       billingCountry: 'US',
-      
+
       // Shipping address
       shippingFirstName: session.user.name?.split(' ')[0] || null,
       shippingLastName: session.user.name?.split(' ').slice(1).join(' ') || null,
@@ -285,7 +320,7 @@ export async function POST(req: NextRequest) {
       shippingState: deliveryAddress?.state || null,
       shippingPostalCode: deliveryAddress?.zipCode || null,
       shippingCountry: 'US',
-      
+
       notes: orderNotes || null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -299,17 +334,17 @@ export async function POST(req: NextRequest) {
       const quantity = item.quantity || 1;
       const numericValue = item.numericValue; // Weight in grams for weight-based products
       const price = item.product?.price || item.price || 0;
-      
+
       console.log(`Processing order item: ${productName}, quantity: ${quantity}, numericValue: ${numericValue}, item:`, item);
 
       // Get cost price and compare price from product or variant at time of sale
       let costPrice = null;
       let comparePrice = null;
       let totalCost = null;
-      
+
       // Check both possible locations for variantId
       const variantId = item.variantId || item.product?.variantId;
-      
+
       // Debug logging for variant detection
       console.log(`Checking variant for ${productName}:`, {
         itemVariantId: item.variantId,
@@ -317,7 +352,7 @@ export async function POST(req: NextRequest) {
         finalVariantId: variantId,
         selectedAttributes: item.product?.selectedAttributes
       });
-      
+
       try {
         if (variantId) {
           // Get cost price and compare price from variant
@@ -399,7 +434,7 @@ export async function POST(req: NextRequest) {
           // Get product to determine stock management type
           const productDetails = await db.query.products.findFirst({
             where: eq(products.id, productId),
-            columns: { stockManagementType: true }
+            columns: { stockManagementType: true, productType: true }
           });
 
           if (!productDetails) {
@@ -408,21 +443,34 @@ export async function POST(req: NextRequest) {
           }
 
           const isWeightBased = productDetails.stockManagementType === 'weight';
+          const isWeightBasedVariable = isWeightBased && productDetails.productType === 'variable';
+
+          // For weight-based variable products, ALWAYS use product-level inventory (variantId = null)
+          // For other products, use the provided variantId
+          const inventoryLookupVariantId = isWeightBasedVariable ? null : variantId;
+
+          console.log(`Inventory lookup for ${productName}:`, {
+            productType: productDetails.productType,
+            stockManagementType: productDetails.stockManagementType,
+            isWeightBasedVariable,
+            originalVariantId: variantId,
+            inventoryLookupVariantId
+          });
 
           // Find inventory record
           const inventory = await db
             .select()
             .from(productInventory)
             .where(
-              variantId 
+              inventoryLookupVariantId
                 ? and(
-                    eq(productInventory.productId, productId),
-                    eq(productInventory.variantId, variantId)
-                  )!
+                  eq(productInventory.productId, productId),
+                  eq(productInventory.variantId, inventoryLookupVariantId)
+                )!
                 : and(
-                    eq(productInventory.productId, productId),
-                    isNull(productInventory.variantId)
-                  )!
+                  eq(productInventory.productId, productId),
+                  isNull(productInventory.variantId)
+                )!
             )
             .limit(1);
 
@@ -436,15 +484,16 @@ export async function POST(req: NextRequest) {
               // Use numericValue for weight-based products (e.g., 100g, 250g, 500g)
               // If numericValue is not available, fall back to quantity * some default
               const requestedWeight = numericValue || quantity;
-              
+
               console.log(`Weight-based deduction for ${productName}:`, {
                 quantity,
                 numericValue,
                 requestedWeight,
                 currentWeightQuantity,
-                variantId
+                isWeightBasedVariable,
+                inventoryLookupVariantId
               });
-              
+
               const newWeightQuantity = currentWeightQuantity - requestedWeight;
               const newAvailableWeight = newWeightQuantity - currentReservedWeight;
 
@@ -459,11 +508,12 @@ export async function POST(req: NextRequest) {
                 .where(eq(productInventory.id, currentInventory.id));
 
               // Create stock movement record
+              // For weight-based variable products, variantId should be null
               await db.insert(stockMovements).values({
                 id: uuidv4(),
                 inventoryId: currentInventory.id,
                 productId,
-                variantId: variantId || null,
+                variantId: isWeightBasedVariable ? null : (variantId || null),
                 movementType: 'out',
                 quantity: 0, // No quantity change for weight-based
                 previousQuantity: currentInventory.quantity || 0,
@@ -473,7 +523,7 @@ export async function POST(req: NextRequest) {
                 newWeightQuantity: newWeightQuantity.toString(),
                 reason: 'Order fulfillment',
                 reference: orderNumber,
-                notes: `Sold ${requestedWeight}g for order ${orderNumber}`,
+                notes: `Sold ${requestedWeight}g for order ${orderNumber}${isWeightBasedVariable ? ' (product-level inventory)' : ''}`,
                 costPrice: costPrice?.toString() || null,
                 processedBy: session.user.id,
                 createdAt: new Date(),
