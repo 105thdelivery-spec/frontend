@@ -419,7 +419,7 @@ export async function processCheckout(formData: FormData) {
         totalPrice: (price * quantity).toString(),
         totalCost: totalCost?.toString() || null,
         productImage: item.product?.images?.[0] || item.product?.image || null,
-        addons: addonData ? JSON.stringify(addonData) : null,
+        addons: addonData || null,
         createdAt: new Date(),
       });
 

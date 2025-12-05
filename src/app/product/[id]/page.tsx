@@ -271,6 +271,9 @@ export default function ProductDetails() {
       ...(selectedVariant && {
         variantId: selectedVariant.variantId,
         variantSku: selectedVariant.sku,
+        variantTitle: Object.entries(selectedAttributes)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', '),
         selectedAttributes: selectedAttributes,
       }),
     };

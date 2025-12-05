@@ -28,6 +28,9 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentLimit, setCurrentLimit] = useState(20);
   const { state } = useCart();
 
   // Cache for products by category
@@ -66,7 +69,10 @@ export default function Home() {
   // Fetch products when category changes (only for non-driver users)
   useEffect(() => {
     if (!isDriver && session) {
-      fetchProducts();
+      // Reset limit and products when category changes
+      setCurrentLimit(20);
+      setHasMore(true);
+      fetchProducts(true);
     }
   }, [selectedCategory, isDriver, session]);
 
@@ -101,35 +107,55 @@ export default function Home() {
     }
   };
 
-  const fetchProducts = async () => {
-    // Check cache first
-    const cached = productCache.current.get(selectedCategory);
-    if (cached) {
-      setProducts(cached);
-      setLoading(false);
-      return;
+  const fetchProducts = async (reset = false) => {
+    const limit = reset ? 20 : currentLimit + 20;
+
+    // Check cache first (only for initial load)
+    if (reset) {
+      const cached = productCache.current.get(selectedCategory);
+      if (cached) {
+        setProducts(cached);
+        setLoading(false);
+        setHasMore(cached.length >= 20);
+        return;
+      }
     }
 
-    setLoading(true);
+    if (reset) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const url = selectedCategory === 'all'
-        ? '/api/products'
-        : `/api/products?category=${selectedCategory}`;
+        ? `/api/products?limit=${limit}`
+        : `/api/products?category=${selectedCategory}&limit=${limit}`;
 
       const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
           setProducts(result.data);
-          // Cache the results
-          productCache.current.set(selectedCategory, result.data);
+          setCurrentLimit(limit);
+          setHasMore(result.data.length >= limit);
+
+          // Cache the results (only for initial load)
+          if (reset) {
+            productCache.current.set(selectedCategory, result.data);
+          }
         }
       }
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    fetchProducts(false);
   };
 
   return (
@@ -188,14 +214,38 @@ export default function Home() {
 
             {/* Products Grid */}
             {!loading && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {products.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                    />
+                  ))}
+                </div>
+
+                {/* Load More Button */}
+                {hasMore && products.length > 0 && (
+                  <div className="flex justify-center mt-8">
+                    <ThemedButton
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      variant="outline"
+                      size="lg"
+                      className="min-w-[200px]"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More Products'
+                      )}
+                    </ThemedButton>
+                  </div>
+                )}
+              </>
             )}
 
             {!loading && products.length === 0 && (
