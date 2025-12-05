@@ -218,7 +218,7 @@ export default function ProductDetails() {
     }
   }, [id, fetchInventory]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
 
     console.log('=== ADD TO CART ===');
@@ -277,17 +277,20 @@ export default function ProductDetails() {
 
     // For weight-based products: quantity=1 (unit count), weightInGrams=effectiveWeight
     // For quantity-based products: quantity=count
+    let success = false;
     if (isWeightBased) {
       console.log(`→ Calling addToCartWithToast(product, 1, ${effectiveWeight})`);
       //alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}${weightLabel}\n\nThis ${effectiveWeight}${weightLabel} should be deducted from stock!`);
-      addToCartWithToast(productForCart, 1, effectiveWeight);
+      success = await addToCartWithToast(productForCart, 1, effectiveWeight);
     } else {
       console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
-      addToCartWithToast(productForCart, quantity);
+      success = await addToCartWithToast(productForCart, quantity);
     }
 
-    // Redirect to cart page after adding product
-    router.push('/cart');
+    // Only redirect to cart page if product was successfully added
+    if (success) {
+      router.push('/cart');
+    }
   };
 
   const handleShare = async (platform?: string) => {

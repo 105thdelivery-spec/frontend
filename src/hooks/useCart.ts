@@ -8,11 +8,11 @@ export function useCart() {
   const cart = useCartContext();
   const { toast } = useToast();
 
-  const addToCartWithToast = async (product: Product, quantity: number = 1, weightInGrams?: number) => {
+  const addToCartWithToast = async (product: Product, quantity: number = 1, weightInGrams?: number): Promise<boolean> => {
     // Check inventory before adding to cart
     try {
       const isWeightBased = product.stockManagementType === 'weight';
-      
+
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
         headers: {
@@ -35,26 +35,26 @@ export function useCart() {
           variant: "destructive",
           duration: 3000,
         });
-        return;
+        return false;
       }
 
       if (!result.available) {
         const message = isWeightBased
           ? result.message || `Only ${result.availableWeight}g available`
           : result.message || `Only ${result.availableQuantity} units available`;
-        
+
         toast({
           title: "Insufficient stock",
           description: message,
           variant: "destructive",
           duration: 3000,
         });
-        return;
+        return false;
       }
 
       // Get current quantity/weight in cart
-      const existingItem = cart.state.items.find(item => 
-        item.product.id === product.id && 
+      const existingItem = cart.state.items.find(item =>
+        item.product.id === product.id &&
         (!product.variantId || item.product.variantId === product.variantId)
       );
       const currentQuantityInCart = existingItem?.quantity || 0;
@@ -64,7 +64,7 @@ export function useCart() {
         // For weight-based products, check against the total weight (numericValue)
         const requestedWeight = weightInGrams || quantity;
         const totalRequestedWeight = (currentQuantityInCart * currentWeightInCart) + requestedWeight;
-        
+
         if (result.stockManagementEnabled && totalRequestedWeight > result.availableWeight) {
           const canAdd = result.availableWeight - (currentQuantityInCart * currentWeightInCart);
           if (canAdd > 0) {
@@ -82,12 +82,12 @@ export function useCart() {
               duration: 3000,
             });
           }
-          return;
+          return false;
         }
       } else {
         // For quantity-based products
         const totalRequestedQuantity = currentQuantityInCart + quantity;
-        
+
         if (result.stockManagementEnabled && totalRequestedQuantity > result.availableQuantity) {
           const canAdd = result.availableQuantity - currentQuantityInCart;
           if (canAdd > 0) {
@@ -105,7 +105,7 @@ export function useCart() {
               duration: 3000,
             });
           }
-          return;
+          return false;
         }
       }
 
@@ -118,12 +118,14 @@ export function useCart() {
       } else {
         cart.addToCart(product, quantity);
       }
-      
+
       toast({
         title: "Added to cart",
         description: `${product.name} has been added to your cart`,
         duration: 2000,
       });
+
+      return true;
     } catch (error) {
       console.error('Error checking inventory:', error);
       toast({
@@ -132,12 +134,13 @@ export function useCart() {
         variant: "destructive",
         duration: 3000,
       });
+      return false;
     }
   };
 
   const removeFromCartWithToast = (productId: string, productName?: string) => {
     cart.removeFromCart(productId);
-    
+
     toast({
       title: "Removed from cart",
       description: productName ? `${productName} has been removed from your cart` : "Item removed from cart",
@@ -148,7 +151,7 @@ export function useCart() {
   const updateQuantityWithToast = (productId: string, quantity: number, productName?: string) => {
     const oldQuantity = cart.state.items.find(item => item.product.id === productId)?.quantity || 0;
     cart.updateQuantity(productId, quantity);
-    
+
     if (quantity === 0) {
       toast({
         title: "Removed from cart",
@@ -163,7 +166,7 @@ export function useCart() {
       });
     } else if (quantity < oldQuantity) {
       toast({
-        title: "Quantity updated", 
+        title: "Quantity updated",
         description: `Decreased quantity to ${quantity}`,
         duration: 1500,
       });
@@ -173,7 +176,7 @@ export function useCart() {
   const clearCartWithToast = () => {
     const itemCount = cart.state.itemCount;
     cart.clearCart();
-    
+
     toast({
       title: "Cart cleared",
       description: `Removed ${itemCount} item${itemCount !== 1 ? 's' : ''} from your cart`,

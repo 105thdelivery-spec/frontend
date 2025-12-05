@@ -477,6 +477,12 @@ export async function processCheckout(formData: FormData) {
               const currentReservedWeight = parseFloat(currentInventory.reservedWeight || '0');
               // Use numericValue for weight-based products (e.g., 100g, 250g, 500g)
               // If numericValue is not available, fall back to quantity * some default
+              console.log('=== BEFORE CALCULATING requestedWeight ===');
+              console.log('numericValue type:', typeof numericValue);
+              console.log('numericValue value:', numericValue);
+              console.log('quantity type:', typeof quantity);
+              console.log('quantity value:', quantity);
+
               const requestedWeight = numericValue || quantity;
 
               console.log('=== WEIGHT-BASED DEDUCTION ===');
