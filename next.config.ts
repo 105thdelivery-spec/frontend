@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
+      // Google Cloud Storage - Primary image storage
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+      // Vercel Blob Storage - Legacy/backward compatibility
       {
         protocol: 'https',
         hostname: '*.public.blob.vercel-storage.com',
