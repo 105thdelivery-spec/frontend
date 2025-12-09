@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: '/login',
+        destination: '/register',
+        permanent: true,
+      },
+      {
         source: '/:path*',
         has: [
           {
