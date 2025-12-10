@@ -36,7 +36,7 @@ export default function CartPage() {
 
   // Redirect to register if not authenticated
   useEffect(() => {
-    if (status === 'loading') return; // Still loading
+    if (status === 'loading') return; // Still loading s
     if (!session) {
       window.location.href = '/register';
       return;
