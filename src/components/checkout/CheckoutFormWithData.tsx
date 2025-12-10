@@ -326,11 +326,23 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
         <CardContent className="space-y-3">
           {state.items.map((item) => (
             <div key={item.product.id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
-              <img
-                src={item.product.image}
-                alt={item.product.name}
-                className="w-12 h-12 object-cover rounded"
-              />
+              <div className="w-12 h-12 flex-shrink-0">
+                {item.product.image ? (
+                  <img
+                    src={item.product.image}
+                    alt={item.product.name}
+                    className="w-full h-full object-cover rounded"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div className={`w-full h-full bg-muted flex items-center justify-center rounded ${item.product.image ? 'hidden' : ''}`}>
+                  <Package className="w-6 h-6 text-muted-foreground/50" />
+                </div>
+              </div>
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium truncate">{item.product.name}</h4>
                 <p className="text-sm text-muted-foreground">{item.product.category}</p>

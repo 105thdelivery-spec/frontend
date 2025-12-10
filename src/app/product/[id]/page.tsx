@@ -647,7 +647,7 @@ export default function ProductDetails() {
             <CardContent className="pt-6">
               {/* Show stock availability for simple products */}
               {product.productType === 'simple' && stockManagementEnabled && availableQuantity !== null && (
-                <div className="mb-4 p-3 rounded-lg bg-muted">
+                <div className="mb-4 p-3 rounded-lg bg-muted hidden">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Stock Status:</span>
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>
@@ -663,7 +663,7 @@ export default function ProductDetails() {
 
               {/* Show stock availability for variable products when variant is selected */}
               {product.productType === 'variable' && selectedVariant && stockManagementEnabled && availableQuantity !== null && (
-                <div className="mb-4 p-3 rounded-lg bg-muted">
+                <div className="mb-4 p-3 rounded-lg bg-muted hidden">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Stock Status:</span>
                     <Badge variant={availableQuantity > 0 ? 'default' : 'destructive'}>

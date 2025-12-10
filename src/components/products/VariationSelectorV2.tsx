@@ -16,18 +16,23 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
   const [error, setError] = useState<string | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<{ [key: string]: string }>({});
 
+  // Helper for natural sorting (handles numbers correctly: 2g comes before 10g)
+  const sortAttributeValues = (values: string[]) => {
+    return [...values].sort(new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare);
+  };
+
   // Fetch variant data
   useEffect(() => {
     const fetchVariants = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetch(`/api/products/${productId}/variants`);
         if (!response.ok) {
           throw new Error('Failed to fetch variants');
         }
-        
+
         const result = await response.json();
         if (result.success) {
           console.log('Raw API response:', result.data);
@@ -54,73 +59,73 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
       console.log('No data available');
       return {};
     }
-    
+
     console.log('Processing data:', data);
     console.log('Product type:', data.product?.productType);
     console.log('Variants count:', data.variants?.length);
     console.log('VariationAttributes:', data.variationAttributes);
     console.log('VariationMatrix:', data.variationMatrix);
-    
+
     // Try to get attributes from variation matrix first
     if (data.variationMatrix && data.variationMatrix.attributes) {
       console.log('Using variationMatrix.attributes:', data.variationMatrix.attributes);
-      
+
       if (Array.isArray(data.variationMatrix.attributes)) {
         const result: { [key: string]: string[] } = {};
-        
+
         data.variationMatrix.attributes.forEach((attr: any, index: number) => {
           console.log(`Processing attribute ${index}:`, attr);
-          
+
           if (attr && typeof attr === 'object' && attr.name) {
             if (attr.values && Array.isArray(attr.values)) {
-              result[attr.name] = attr.values.map((v: any) => {
+              result[attr.name] = sortAttributeValues(attr.values.map((v: any) => {
                 if (typeof v === 'string') return v;
                 if (v && typeof v === 'object') return v.value || v.name || String(v);
                 return String(v);
-              }).filter((v: any) => v && typeof v === 'string');
-              
+              }).filter((v: any) => v && typeof v === 'string'));
+
               console.log(`Attribute ${attr.name} values:`, result[attr.name]);
             }
           }
         });
-        
+
         console.log('Final result from variationMatrix:', result);
         return result;
       }
     }
-    
+
     // Try variation attributes (normalized structure)
     if (data.variationAttributes && Array.isArray(data.variationAttributes)) {
       console.log('Using variationAttributes:', data.variationAttributes);
-      
+
       const result: { [key: string]: string[] } = {};
-      
+
       data.variationAttributes.forEach((attr: any, index: number) => {
         console.log(`Processing variationAttribute ${index}:`, attr);
-        
+
         if (attr && typeof attr === 'object' && attr.name) {
           if (attr.values && Array.isArray(attr.values)) {
             // Handle normalized structure where values are objects with 'value' property
-            result[attr.name] = attr.values.map((v: any) => {
+            result[attr.name] = sortAttributeValues(attr.values.map((v: any) => {
               if (typeof v === 'string') return v;
               if (v && typeof v === 'object') {
                 // Use the 'value' property from normalized structure
                 return v.value || v.name || String(v.id || v);
               }
               return String(v);
-            }).filter((v: any) => v && typeof v === 'string');
-            
+            }).filter((v: any) => v && typeof v === 'string'));
+
             console.log(`VariationAttribute ${attr.name} values:`, result[attr.name]);
           } else if (typeof attr.values === 'string') {
             // Handle case where values might be a JSON string
             try {
               const parsedValues = JSON.parse(attr.values);
               if (Array.isArray(parsedValues)) {
-                result[attr.name] = parsedValues.map((v: any) => {
+                result[attr.name] = sortAttributeValues(parsedValues.map((v: any) => {
                   if (typeof v === 'string') return v;
                   if (v && typeof v === 'object') return v.value || v.name || String(v.id || v);
                   return String(v);
-                }).filter((v: any) => v && typeof v === 'string');
+                }).filter((v: any) => v && typeof v === 'string'));
               }
             } catch (e) {
               console.warn('Failed to parse values string:', e);
@@ -128,17 +133,17 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
           }
         }
       });
-      
+
       console.log('Final result from variationAttributes:', result);
       return result;
     }
-    
+
     // Fallback: extract from variants
     if (data.variants && Array.isArray(data.variants)) {
       console.log('Extracting from variants:', data.variants);
-      
+
       const attributes: { [key: string]: Set<string> } = {};
-      
+
       data.variants.forEach((variant: any) => {
         if (variant.attributes && typeof variant.attributes === 'object') {
           Object.entries(variant.attributes).forEach(([key, value]) => {
@@ -149,16 +154,16 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
           });
         }
       });
-      
+
       const result: { [key: string]: string[] } = {};
       Object.entries(attributes).forEach(([key, valueSet]) => {
-        result[key] = Array.from(valueSet).sort();
+        result[key] = sortAttributeValues(Array.from(valueSet));
       });
-      
+
       console.log('Final result from variants extraction:', result);
       return result;
     }
-    
+
     console.log('No valid attributes found');
     return {};
   };
@@ -169,13 +174,13 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
   useEffect(() => {
     if (Object.keys(availableAttributes).length > 0 && Object.keys(selectedAttributes).length === 0) {
       const defaultSelections: { [key: string]: string } = {};
-      
+
       Object.entries(availableAttributes).forEach(([attributeName, values]) => {
         if (values.length > 0) {
           defaultSelections[attributeName] = values[0];
         }
       });
-      
+
       console.log('Setting default selections:', defaultSelections);
       setSelectedAttributes(defaultSelections);
     }
@@ -189,15 +194,15 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, value]) => `${key}:${value}`)
         .join('|');
-      
+
       const variant = data.priceMatrix[attributeKey] || null;
-      
+
       // Get numeric value directly from variant (stored in product_variants table)
       const numericValue = variant?.numericValue || null;
-      
+
       console.log('Selected variant:', variant, 'for attributes:', selectedAttributes);
       console.log('numericValue from variant:', numericValue);
-      
+
       onVariantChange(variant, selectedAttributes, numericValue);
     } else {
       onVariantChange(null, {}, null);
@@ -280,12 +285,12 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
     <Card>
       <CardContent className="pt-6 space-y-4">
         <h3 className="font-semibold">Product Options</h3>
-        
+
         {Object.entries(availableAttributes).map(([attributeName, values]) => {
           if (!Array.isArray(values) || values.length === 0) {
             return null;
           }
-          
+
           return (
             <div key={attributeName} className="space-y-2">
               <div className="flex items-center justify-between">
@@ -298,7 +303,7 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                   </Badge>
                 )}
               </div>
-              
+
               {/* Use dropdown/select for all attributes */}
               <select
                 value={selectedAttributes[attributeName] || ''}
@@ -329,26 +334,26 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([key, value]) => `${key}:${value}`)
                   .join('|');
-                
+
                 console.log('=== VARIANT MATCHING DEBUG ===');
                 console.log('Selected attributes:', selectedAttributes);
                 console.log('Generated attribute key:', attributeKey);
                 console.log('Available price matrix keys:', Object.keys(data?.priceMatrix || {}));
                 console.log('Price matrix:', data?.priceMatrix);
-                
+
                 // Try exact match first
                 let variant = data?.priceMatrix?.[attributeKey];
-                
+
                 // If no exact match, try to find a case-insensitive match or with different value formats
                 if (!variant && data?.priceMatrix) {
                   console.log('Exact match failed, trying alternative matching...');
-                  
+
                   const priceMatrixKeys = Object.keys(data.priceMatrix);
-                  
+
                   // Try case-insensitive matching
                   const lowerAttributeKey = attributeKey.toLowerCase();
                   const matchingKey = priceMatrixKeys.find(key => key.toLowerCase() === lowerAttributeKey);
-                  
+
                   if (matchingKey) {
                     variant = data.priceMatrix[matchingKey];
                     console.log('Found case-insensitive match:', matchingKey, variant);
@@ -358,27 +363,27 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                     for (const [key, matrixVariant] of Object.entries(data.priceMatrix)) {
                       const keyPairs = key.split('|');
                       const keyAttributes: { [k: string]: string } = {};
-                      
+
                       keyPairs.forEach(pair => {
                         const [attrName, attrValue] = pair.split(':');
                         if (attrName && attrValue) {
                           keyAttributes[attrName] = attrValue;
                         }
                       });
-                      
+
                       console.log('Checking matrix key:', key, 'attributes:', keyAttributes);
-                      
+
                       // Check if all selected attributes match (case-insensitive)
                       const allMatch = Object.entries(selectedAttributes).every(([selAttr, selValue]) => {
                         const matrixValue = keyAttributes[selAttr];
                         const match = matrixValue && (
-                          matrixValue === selValue || 
+                          matrixValue === selValue ||
                           matrixValue.toLowerCase() === selValue.toLowerCase()
                         );
                         console.log(`Comparing ${selAttr}: "${selValue}" vs "${matrixValue}" = ${match}`);
                         return match;
                       });
-                      
+
                       if (allMatch) {
                         variant = matrixVariant;
                         console.log('Found partial match:', key, variant);
@@ -387,9 +392,9 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                     }
                   }
                 }
-                
+
                 console.log('Final found variant:', variant);
-                
+
                 if (variant) {
                   return (
                     <div className="bg-muted/50 rounded-lg p-4 space-y-3">
@@ -399,7 +404,7 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                           {variant.sku}
                         </Badge>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-muted-foreground">Price:</span>
                         <div className="text-right">
@@ -413,12 +418,12 @@ export function VariationSelectorV2({ productId, onVariantChange }: VariationSel
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-muted-foreground">Stock:</span>
                         <Badge variant={!variant.outOfStock ? 'default' : 'destructive'}>
-                          {!variant.outOfStock 
-                            ? `In Stock${variant.inventoryQuantity > 0 ? ` (${variant.inventoryQuantity} available)` : ''}` 
+                          {!variant.outOfStock
+                            ? `In Stock${variant.inventoryQuantity > 0 ? ` (${variant.inventoryQuantity} available)` : ''}`
                             : 'Out of Stock'}
                         </Badge>
                       </div>

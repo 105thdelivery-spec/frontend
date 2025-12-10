@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Trash2, Plus, Minus } from 'lucide-react';
+import { Trash2, Plus, Minus, Package } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { Button } from '@/components/ui/button';
@@ -131,11 +131,23 @@ export default function CartPage() {
             <Card key={item.product.id} className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex gap-4">
-                  <img
-                    src={item.product.image}
-                    alt={item.product.name}
-                    className="w-20 h-20 object-cover rounded-lg"
-                  />
+                  <div className="w-20 h-20 flex-shrink-0">
+                    {item.product.image ? (
+                      <img
+                        src={item.product.image}
+                        alt={item.product.name}
+                        className="w-full h-full object-cover rounded-lg"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`w-full h-full bg-muted flex items-center justify-center rounded-lg ${item.product.image ? 'hidden' : ''}`}>
+                      <Package className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                  </div>
 
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between items-start">
