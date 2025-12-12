@@ -17,6 +17,8 @@ interface OrderData {
   originalTotal?: number;
   pointsRedeemed?: number;
   pointsDiscount?: number;
+  couponCode?: string | null;
+  couponDiscount?: number;
   paymentMethod: string;
   orderNotes: string;
   deliveryAddress: {
@@ -146,6 +148,8 @@ export default function ThankYouPage() {
   const loyaltyPointsEarned = loyaltySettings.enabled ? Math.floor(baseAmount * loyaltySettings.earningRate) : 0;
   const pointsRedeemed = orderData?.pointsRedeemed || 0;
   const pointsDiscount = orderData?.pointsDiscount || 0;
+  const couponCode = orderData?.couponCode || null;
+  const couponDiscount = orderData?.couponDiscount || 0;
   
   // Calculate total reward amount based on points earned
   const rewardAmount = loyaltyPointsEarned * loyaltySettings.redemptionValue;
@@ -316,6 +320,12 @@ export default function ThankYouPage() {
                 <div className="flex justify-between text-purple-600">
                   <span>Points Discount ({pointsRedeemed} pts):</span>
                   <span>-${pointsDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {couponCode && couponDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Coupon ({couponCode}):</span>
+                  <span>-${couponDiscount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">

@@ -49,6 +49,8 @@ export interface CheckoutData {
   pointsToRedeem?: number;
   pointsDiscountAmount?: number;
   useAllPoints?: boolean;
+  couponCode?: string;
+  couponDiscountAmount?: number;
 }
 
 interface OrderSettings {
@@ -233,7 +235,10 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
       const deliveryFee = data.orderType === 'delivery' ? orderSettings.deliveryFee : 0;
       const shippingFee = data.orderType === 'shipping' ? orderSettings.shippingFee : 0;
       const totalWithFees = total + deliveryFee + shippingFee;
-      const finalTotal = totalWithFees - (data.pointsDiscountAmount || 0);
+      const finalTotal = Math.max(
+        0,
+        totalWithFees - (data.couponDiscountAmount || 0) - (data.pointsDiscountAmount || 0)
+      );
       
       // Create FormData for server action
       const formData = new FormData();
@@ -256,6 +261,7 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
       formData.append('orderNotes', data.orderNotes);
       formData.append('pointsToRedeem', (data.pointsToRedeem || 0).toString());
       formData.append('pointsDiscountAmount', (data.pointsDiscountAmount || 0).toString());
+      formData.append('couponCode', (data.couponCode || '').toString());
 
       console.log('📝 Submitting checkout with data:', {
         items: state.items.length,
@@ -275,6 +281,8 @@ export function CheckoutClientPage({ loyaltySettings, customerPoints, orderSetti
           originalTotal: total,
           pointsRedeemed: data.pointsToRedeem || 0,
           pointsDiscount: data.pointsDiscountAmount || 0,
+          couponCode: data.couponCode || null,
+          couponDiscount: data.couponDiscountAmount || 0,
           pointsEarned: result.pointsEarned || 0,
           paymentMethod: data.paymentMethod,
           orderNotes: data.orderNotes,

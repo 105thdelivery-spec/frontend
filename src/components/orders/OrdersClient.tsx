@@ -33,6 +33,8 @@ interface Order {
   orderType?: 'delivery' | 'pickup';
   items: OrderItem[];
   total: number;
+  couponCode?: string | null;
+  couponDiscountAmount?: number;
   status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled';
   deliveryStatus?: 'pending' | 'assigned' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'failed';
   paymentMethod: 'cod' | 'gateway';
@@ -242,6 +244,12 @@ export function OrdersClient({ userId }: OrdersClientProps) {
             {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Card Payment'}
           </span>
         </div>
+        {order.couponCode && (order.couponDiscountAmount || 0) > 0 && (
+          <div className="flex justify-between text-sm text-green-700">
+            <span>Coupon ({order.couponCode})</span>
+            <span>- ${Number(order.couponDiscountAmount || 0).toFixed(2)}</span>
+          </div>
+        )}
 
         {/* Driver Assignment Section */}
         {order.assignedDriver && (

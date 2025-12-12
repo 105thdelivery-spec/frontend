@@ -5,9 +5,10 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { userLoyaltyPoints, loyaltyPointsHistory, settings, orders, orderItems, user, products, productVariants, productInventory, stockMovements } from '@/lib/schema'
+import { userLoyaltyPoints, loyaltyPointsHistory, settings, orders, orderItems, user, products, productVariants, productInventory, stockMovements, couponRedemptions } from '@/lib/schema'
 import { eq, and, or, isNull } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { validateAndCalculateCouponDiscount } from '@/lib/coupons'
 
 // Get loyalty settings directly from database
 export async function getLoyaltySettings() {
@@ -160,7 +161,8 @@ export async function processCheckout(formData: FormData) {
       pickupLocationId: formData.get('pickupLocationId') as string || null,
       orderNotes: formData.get('orderNotes') as string || '',
       pointsToRedeem: parseInt(formData.get('pointsToRedeem') as string || '0'),
-      pointsDiscountAmount: parseFloat(formData.get('pointsDiscountAmount') as string || '0')
+      pointsDiscountAmount: parseFloat(formData.get('pointsDiscountAmount') as string || '0'),
+      couponCode: formData.get('couponCode') as string || '',
     };
 
     console.log('📦 Order Type from form:', orderTypeFromForm);
@@ -174,7 +176,40 @@ export async function processCheckout(formData: FormData) {
 
     const orderId = uuidv4();
     const orderNumber = `ORD-${Date.now()}`;
-    const finalTotal = checkoutData.total;
+    // Coupon: validate and compute on server (do not trust client).
+    const couponResult = checkoutData.couponCode
+      ? await validateAndCalculateCouponDiscount({
+          code: checkoutData.couponCode,
+          itemsSubtotal: checkoutData.subtotal,
+        })
+      : null;
+
+    const couponIdToSave = couponResult && couponResult.ok ? couponResult.coupon.id : null;
+    const couponCodeToSave = couponResult && couponResult.ok ? couponResult.normalizedCode : null;
+    const couponDiscountAmountToSave = couponResult && couponResult.ok ? couponResult.discountAmount : 0;
+
+    // Points apply after coupon (frontend enforces; backend clamps to never exceed remaining subtotal).
+    const loyaltySettings = await getLoyaltySettings();
+    const pointsEligibleSubtotal = Math.max(0, checkoutData.subtotal - couponDiscountAmountToSave);
+    const maxPointsDiscount = pointsEligibleSubtotal * (loyaltySettings.maxRedemptionPercent / 100);
+    let pointsToRedeem = Math.max(0, Number.isFinite(checkoutData.pointsToRedeem) ? checkoutData.pointsToRedeem : 0);
+    let pointsDiscountAmount = Math.max(0, Number.isFinite(checkoutData.pointsDiscountAmount) ? checkoutData.pointsDiscountAmount : 0);
+
+    // Recompute points discount from pointsToRedeem when possible.
+    if (loyaltySettings.enabled && loyaltySettings.redemptionValue > 0 && pointsToRedeem > 0) {
+      pointsDiscountAmount = pointsToRedeem * loyaltySettings.redemptionValue;
+      pointsDiscountAmount = Math.min(pointsDiscountAmount, maxPointsDiscount, pointsEligibleSubtotal);
+      pointsToRedeem = Math.floor(pointsDiscountAmount / loyaltySettings.redemptionValue);
+    } else {
+      pointsToRedeem = 0;
+      pointsDiscountAmount = 0;
+    }
+
+    const fees = (checkoutData.deliveryFee || 0) + (checkoutData.shippingFee || 0);
+    const finalTotal = Math.max(
+      0,
+      checkoutData.subtotal + fees - couponDiscountAmountToSave - pointsDiscountAmount
+    );
 
     // Check if database is configured
     if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASS || !process.env.DB_NAME) {
@@ -189,9 +224,9 @@ export async function processCheckout(formData: FormData) {
     }
 
     // Redeem points if any
-    if (checkoutData.pointsToRedeem > 0) {
+    if (pointsToRedeem > 0) {
       console.log(`\n=== POINTS REDEMPTION ===`);
-      console.log(`User: ${session.user.id}, Points to redeem: ${checkoutData.pointsToRedeem}, Discount: $${checkoutData.pointsDiscountAmount}`);
+      console.log(`User: ${session.user.id}, Points to redeem: ${pointsToRedeem}, Discount: $${pointsDiscountAmount}`);
 
       // Get current points
       const userPoints = await db
@@ -200,13 +235,13 @@ export async function processCheckout(formData: FormData) {
         .where(eq(userLoyaltyPoints.userId, session.user.id))
         .limit(1);
 
-      if (userPoints.length === 0 || (userPoints[0].availablePoints || 0) < checkoutData.pointsToRedeem) {
+      if (userPoints.length === 0 || (userPoints[0].availablePoints || 0) < pointsToRedeem) {
         throw new Error('Insufficient points for redemption');
       }
 
       const currentPoints = userPoints[0];
-      const newAvailablePoints = (currentPoints.availablePoints || 0) - checkoutData.pointsToRedeem;
-      const newTotalRedeemed = (currentPoints.totalPointsRedeemed || 0) + checkoutData.pointsToRedeem;
+      const newAvailablePoints = (currentPoints.availablePoints || 0) - pointsToRedeem;
+      const newTotalRedeemed = (currentPoints.totalPointsRedeemed || 0) + pointsToRedeem;
 
       // Update user points
       await db.update(userLoyaltyPoints)
@@ -225,11 +260,11 @@ export async function processCheckout(formData: FormData) {
         orderId,
         transactionType: 'redeemed',
         status: 'available',
-        points: -checkoutData.pointsToRedeem,
+        points: -pointsToRedeem,
         pointsBalance: newAvailablePoints,
-        description: `Redeemed ${checkoutData.pointsToRedeem} points for $${checkoutData.pointsDiscountAmount.toFixed(2)} discount`,
-        orderAmount: checkoutData.total.toString(),
-        discountAmount: checkoutData.pointsDiscountAmount.toString(),
+        description: `Redeemed ${pointsToRedeem} points for $${pointsDiscountAmount.toFixed(2)} discount`,
+        orderAmount: finalTotal.toString(),
+        discountAmount: pointsDiscountAmount.toString(),
         expiresAt: null,
         isExpired: false,
         processedBy: session.user.id,
@@ -257,7 +292,7 @@ export async function processCheckout(formData: FormData) {
       subtotal: checkoutData.subtotal.toString(),
       taxAmount: '0.00',
       shippingAmount: (checkoutData.deliveryFee + checkoutData.shippingFee).toString(), // Only one will be non-zero based on order type
-      discountAmount: checkoutData.pointsDiscountAmount.toString(),
+      discountAmount: pointsDiscountAmount.toString(),
       totalAmount: finalTotal.toString(),
       currency: 'USD',
 
@@ -270,8 +305,13 @@ export async function processCheckout(formData: FormData) {
       deliveryStatus: 'pending',
 
       // Loyalty points fields
-      pointsToRedeem: checkoutData.pointsToRedeem,
-      pointsDiscountAmount: checkoutData.pointsDiscountAmount.toString(),
+      pointsToRedeem: pointsToRedeem,
+      pointsDiscountAmount: pointsDiscountAmount.toString(),
+
+      // Coupon fields
+      couponId: couponIdToSave,
+      couponCode: couponCodeToSave,
+      couponDiscountAmount: couponDiscountAmountToSave.toString(),
 
       // Addresses (for delivery and shipping orders)
       billingFirstName: checkoutData.customerInfo.name?.split(' ')[0] || null,
@@ -297,6 +337,20 @@ export async function processCheckout(formData: FormData) {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Record coupon redemption for reporting.
+    if (couponIdToSave && couponCodeToSave && couponDiscountAmountToSave > 0) {
+      await db.insert(couponRedemptions).values({
+        id: uuidv4(),
+        couponId: couponIdToSave,
+        orderId,
+        userId: session.user.id,
+        email: checkoutData.customerInfo.email || null,
+        codeSnapshot: couponCodeToSave,
+        discountAmount: couponDiscountAmountToSave.toString(),
+        redeemedAt: new Date(),
+      });
+    }
 
     console.log(`✅ Order created with type: ${checkoutData.orderType}`);
 
@@ -583,7 +637,6 @@ export async function processCheckout(formData: FormData) {
     }
 
     // Award loyalty points for the order
-    const loyaltySettings = await getLoyaltySettings();
     if (loyaltySettings.enabled) {
       console.log(`\n=== LOYALTY POINTS EARNING ===`);
       console.log(`Settings: Rate=${loyaltySettings.earningRate}, Basis=${loyaltySettings.earningBasis}`);

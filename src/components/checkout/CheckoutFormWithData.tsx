@@ -57,6 +57,8 @@ interface CheckoutData {
   pointsToRedeem?: number;
   pointsDiscountAmount?: number;
   useAllPoints?: boolean;
+  couponCode?: string;
+  couponDiscountAmount?: number;
 }
 
 interface ShippingStatus {
@@ -129,6 +131,13 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [pointsDiscountAmount, setPointsDiscountAmount] = useState(0);
   const [useAllPoints, setUseAllPoints] = useState(false);
+
+  // Coupon state
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
+  const [couponError, setCouponError] = useState<string>('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   // Order validation state
   const [orderValidationError, setOrderValidationError] = useState<string>('');
@@ -240,8 +249,8 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
     // Calculate discount amount based on points
     const discountAmount = pointsToRedeem * loyaltySettings.redemptionValue;
 
-    // Calculate subtotal (total - tax)
-    const subtotal = total; // No tax applied
+    // Points apply after coupon (coupon applies to items subtotal only)
+    const subtotal = Math.max(0, total - couponDiscountAmount); // No tax applied
     const maxAllowedDiscount = subtotal * (loyaltySettings.maxRedemptionPercent / 100);
 
     const finalDiscountAmount = Math.min(discountAmount, maxAllowedDiscount);
@@ -258,7 +267,8 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
       setPointsDiscountAmount(0);
       setUseAllPoints(false);
     } else {
-      const maxPointsBasedOnPercent = Math.floor((total * loyaltySettings.maxRedemptionPercent / 100) / loyaltySettings.redemptionValue);
+      const pointsEligibleSubtotal = Math.max(0, total - couponDiscountAmount);
+      const maxPointsBasedOnPercent = Math.floor((pointsEligibleSubtotal * loyaltySettings.maxRedemptionPercent / 100) / loyaltySettings.redemptionValue);
       const pointsToUse = Math.min(customerPoints.availablePoints, maxPointsBasedOnPercent);
 
       if (pointsToUse >= loyaltySettings.redemptionMinimum) {
@@ -266,6 +276,60 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
         setPointsDiscountAmount(pointsToUse * loyaltySettings.redemptionValue);
         setUseAllPoints(true);
       }
+    }
+  };
+
+  const handleApplyCoupon = async () => {
+    const code = couponCodeInput.trim();
+    if (!code) {
+      setCouponError('Enter a coupon code.');
+      return;
+    }
+
+    setIsApplyingCoupon(true);
+    setCouponError('');
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal: total }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        setAppliedCouponCode(null);
+        setCouponDiscountAmount(0);
+        setCouponError(data?.message || 'Failed to apply coupon.');
+        return;
+      }
+
+      const discount = Number(data.discountAmount) || 0;
+      setAppliedCouponCode(String(data.code || code).toUpperCase());
+      setCouponDiscountAmount(discount);
+      setCouponError('');
+
+      // If a coupon reduces subtotal, points may need clamping—re-run with current input.
+      if (pointsToRedeem > 0) {
+        handlePointsRedemption(pointsToRedeem);
+      }
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      setCouponError('Failed to apply coupon.');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCouponCode(null);
+    setCouponDiscountAmount(0);
+    setCouponError('');
+    setCouponCodeInput('');
+    // Re-run points calc because eligible subtotal increased.
+    if (pointsToRedeem > 0) {
+      handlePointsRedemption(pointsToRedeem);
     }
   };
 
@@ -281,7 +345,9 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
       orderNotes,
       pointsToRedeem,
       pointsDiscountAmount,
-      useAllPoints
+      useAllPoints,
+      couponCode: appliedCouponCode || undefined,
+      couponDiscountAmount: couponDiscountAmount || 0,
     };
 
     onSubmit(checkoutData);
@@ -292,7 +358,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
   const shippingFee = orderType === 'shipping' ? orderSettings.shippingFee : 0;
   const subtotal = total;
   const totalWithFees = subtotal + deliveryFee + shippingFee;
-  const finalTotal = totalWithFees - pointsDiscountAmount;
+  const finalTotal = Math.max(0, totalWithFees - couponDiscountAmount - pointsDiscountAmount);
 
   // Validate minimum order value
   const meetsMinimumOrder = subtotal >= orderSettings.minimumOrderValue;
@@ -778,6 +844,35 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Coupon */}
+          <div className="space-y-2">
+            <Label htmlFor="couponCode">Coupon code</Label>
+            <div className="flex gap-2">
+              <Input
+                id="couponCode"
+                value={couponCodeInput}
+                onChange={(e) => setCouponCodeInput(e.target.value)}
+                placeholder="Enter coupon"
+                disabled={isApplyingCoupon || !!appliedCouponCode}
+              />
+              {appliedCouponCode ? (
+                <Button type="button" variant="outline" onClick={handleRemoveCoupon}>
+                  Remove
+                </Button>
+              ) : (
+                <Button type="button" onClick={handleApplyCoupon} disabled={isApplyingCoupon}>
+                  {isApplyingCoupon ? 'Applying...' : 'Apply'}
+                </Button>
+              )}
+            </div>
+            {couponError && <p className="text-sm text-red-600">{couponError}</p>}
+            {appliedCouponCode && couponDiscountAmount > 0 && (
+              <p className="text-sm text-green-700">
+                Applied {appliedCouponCode}: -${couponDiscountAmount.toFixed(2)}
+              </p>
+            )}
+          </div>
+
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
@@ -798,6 +893,12 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
             <span>Tax</span>
             <span>$0.00</span>
           </div>
+          {appliedCouponCode && couponDiscountAmount > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Coupon ({appliedCouponCode})</span>
+              <span>-${couponDiscountAmount.toFixed(2)}</span>
+            </div>
+          )}
           {pointsDiscountAmount > 0 && (
             <div className="flex justify-between text-green-600">
               <span>Points Discount (-{pointsToRedeem} pts)</span>

@@ -396,8 +396,73 @@ export const orders = mysqlTable("orders", {
   pointsToRedeem: int("points_to_redeem").default(0), // Points redeemed for this order
   pointsDiscountAmount: decimal("points_discount_amount", { precision: 10, scale: 2 }).default('0.00'), // Discount amount from points
 
+  // Coupon fields (separate from manual/admin discount + loyalty)
+  couponId: varchar("coupon_id", { length: 255 }),
+  couponCode: varchar("coupon_code", { length: 64 }),
+  couponDiscountAmount: decimal("coupon_discount_amount", { precision: 10, scale: 2 }).default('0.00'),
+
   createdAt: datetime("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Coupons
+export const coupons = mysqlTable("coupons", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  code: varchar("code", { length: 64 }).notNull().unique(), // store uppercase normalized
+  name: varchar("name", { length: 255 }),
+  description: text("description"),
+  discountType: varchar("discount_type", { length: 20 }).notNull(), // 'percent' | 'fixed'
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  maxDiscountAmount: decimal("max_discount_amount", { precision: 10, scale: 2 }),
+  minSubtotal: decimal("min_subtotal", { precision: 10, scale: 2 }),
+  startAt: datetime("start_at"),
+  endAt: datetime("end_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  usageLimitTotal: int("usage_limit_total"),
+  usageLimitPerUser: int("usage_limit_per_user"),
+  firstOrderOnly: boolean("first_order_only").notNull().default(false),
+  createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const couponIncludedProducts = mysqlTable("coupon_included_products", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  couponId: varchar("coupon_id", { length: 255 }).notNull(),
+  productId: varchar("product_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const couponExcludedProducts = mysqlTable("coupon_excluded_products", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  couponId: varchar("coupon_id", { length: 255 }).notNull(),
+  productId: varchar("product_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const couponIncludedCategories = mysqlTable("coupon_included_categories", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  couponId: varchar("coupon_id", { length: 255 }).notNull(),
+  categoryId: varchar("category_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const couponExcludedCategories = mysqlTable("coupon_excluded_categories", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  couponId: varchar("coupon_id", { length: 255 }).notNull(),
+  categoryId: varchar("category_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const couponRedemptions = mysqlTable("coupon_redemptions", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  couponId: varchar("coupon_id", { length: 255 }).notNull(),
+  orderId: varchar("order_id", { length: 255 }),
+  userId: varchar("user_id", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  codeSnapshot: varchar("code_snapshot", { length: 64 }).notNull(),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  status: varchar("status", { length: 20 }).notNull().default("redeemed"),
+  redeemedAt: datetime("redeemed_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Order Items

@@ -160,6 +160,8 @@ export async function GET(
             return finalItem;
           }),
           total: parseFloat(order.totalAmount.toString()),
+          couponCode: order.couponCode || null,
+          couponDiscountAmount: order.couponDiscountAmount ? parseFloat(order.couponDiscountAmount.toString()) : 0,
           status: order.status,
           orderType: order.orderType || 'delivery',
           deliveryStatus: order.deliveryStatus, // Include delivery status for button visibility

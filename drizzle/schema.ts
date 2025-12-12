@@ -99,6 +99,69 @@ export const orders = mysqlTable("orders", {
 	updatedAt: datetime({ mode: 'string'}).default('current_timestamp()'),
 });
 
+// Coupons
+export const coupons = mysqlTable("coupons", {
+	id: varchar({ length: 255 }).notNull(),
+	code: varchar({ length: 64 }).notNull(),
+	name: varchar({ length: 255 }).default('NULL'),
+	description: text("description").default('NULL'),
+	discountType: varchar("discount_type", { length: 20 }).notNull(),
+	discountValue: varchar("discount_value", { length: 50 }).notNull(),
+	maxDiscountAmount: varchar("max_discount_amount", { length: 50 }).default('NULL'),
+	minSubtotal: varchar("min_subtotal", { length: 50 }).default('NULL'),
+	startAt: datetime("start_at", { mode: 'string'}).default('NULL'),
+	endAt: datetime("end_at", { mode: 'string'}).default('NULL'),
+	isActive: tinyint("is_active").default(1),
+	usageLimitTotal: int("usage_limit_total").default('NULL'),
+	usageLimitPerUser: int("usage_limit_per_user").default('NULL'),
+	firstOrderOnly: tinyint("first_order_only").default(0),
+	createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+	updatedAt: datetime("updated_at", { mode: 'string'}).default('current_timestamp()'),
+},
+(table) => [
+	unique("coupons_code_unique").on(table.code),
+]);
+
+export const couponIncludedProducts = mysqlTable("coupon_included_products", {
+	id: varchar({ length: 255 }).notNull(),
+	couponId: varchar("coupon_id", { length: 255 }).notNull(),
+	productId: varchar("product_id", { length: 255 }).notNull(),
+	createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
+export const couponExcludedProducts = mysqlTable("coupon_excluded_products", {
+	id: varchar({ length: 255 }).notNull(),
+	couponId: varchar("coupon_id", { length: 255 }).notNull(),
+	productId: varchar("product_id", { length: 255 }).notNull(),
+	createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
+export const couponIncludedCategories = mysqlTable("coupon_included_categories", {
+	id: varchar({ length: 255 }).notNull(),
+	couponId: varchar("coupon_id", { length: 255 }).notNull(),
+	categoryId: varchar("category_id", { length: 255 }).notNull(),
+	createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
+export const couponExcludedCategories = mysqlTable("coupon_excluded_categories", {
+	id: varchar({ length: 255 }).notNull(),
+	couponId: varchar("coupon_id", { length: 255 }).notNull(),
+	categoryId: varchar("category_id", { length: 255 }).notNull(),
+	createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
+export const couponRedemptions = mysqlTable("coupon_redemptions", {
+	id: varchar({ length: 255 }).notNull(),
+	couponId: varchar("coupon_id", { length: 255 }).notNull(),
+	orderId: varchar("order_id", { length: 255 }).default('NULL'),
+	userId: varchar("user_id", { length: 255 }).default('NULL'),
+	email: varchar({ length: 255 }).default('NULL'),
+	codeSnapshot: varchar("code_snapshot", { length: 64 }).notNull(),
+	discountAmount: varchar("discount_amount", { length: 50 }).notNull(),
+	status: varchar({ length: 20 }).default('\'redeemed\'').notNull(),
+	redeemedAt: datetime("redeemed_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
 export const recordings = mysqlTable("recordings", {
 	id: varchar({ length: 255 }).notNull(),
 	recordingTitle: varchar({ length: 255 }).notNull(),
