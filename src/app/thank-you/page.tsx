@@ -29,6 +29,7 @@ interface OrderData {
     instructions?: string;
   };
   items?: {
+    id: string;
     product: {
       id: string;
       name: string;
@@ -39,6 +40,8 @@ interface OrderData {
       variantSku?: string;
     };
     quantity: number;
+    numericValue?: number;
+    note?: string;
   }[];
 }
 
@@ -266,7 +269,7 @@ export default function ThankYouPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {orderData.items.map((item, index) => (
-                <div key={index} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
+                <div key={item.id || index} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
                   <img
                     src={item.product.image}
                     alt={item.product.name}
@@ -290,6 +293,13 @@ export default function ThankYouPage() {
                     {/* Show variant SKU if available */}
                     {item.product.variantSku && (
                       <p className="text-xs text-muted-foreground mt-1">SKU: {item.product.variantSku}</p>
+                    )}
+
+                    {/* Per-item note */}
+                    {item.note && (
+                      <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                        Note: {item.note}
+                      </p>
                     )}
                   </div>
                   <div className="text-right">

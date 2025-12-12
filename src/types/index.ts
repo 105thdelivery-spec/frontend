@@ -26,9 +26,13 @@ export interface Product {
 }
 
 export interface CartItem {
+  /** Unique cart line id (allows multiple lines for same product/variant with different notes) */
+  id: string;
   product: Product;
   quantity: number;
   numericValue?: number; // For weight-based products: the actual weight in grams (e.g., 100, 250, 500)
+  /** Optional per-line multi-line note (max 500 chars enforced in UI) */
+  note?: string;
 }
 
 export interface Order {

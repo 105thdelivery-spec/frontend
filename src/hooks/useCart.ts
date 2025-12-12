@@ -8,10 +8,17 @@ export function useCart() {
   const cart = useCartContext();
   const { toast } = useToast();
 
-  const addToCartWithToast = async (product: Product, quantity: number = 1, weightInGrams?: number): Promise<boolean> => {
+  const addToCartWithToast = async (
+    product: Product,
+    quantity: number = 1,
+    weightInGrams?: number,
+    note?: string
+  ): Promise<boolean> => {
     // Check inventory before adding to cart
     try {
       const isWeightBased = product.stockManagementType === 'weight';
+      const requestedWeightPerUnit = isWeightBased ? (weightInGrams ?? quantity) : undefined;
+      const requestedWeightTotal = isWeightBased ? (requestedWeightPerUnit || 0) * quantity : undefined;
 
       const response = await fetch('/api/inventory/check', {
         method: 'POST',
@@ -22,7 +29,7 @@ export function useCart() {
           productId: product.id,
           variantId: product.variantId || null,
           requestedQuantity: !isWeightBased ? quantity : undefined,
-          requestedWeight: isWeightBased ? (weightInGrams || quantity) : undefined,
+          requestedWeight: isWeightBased ? requestedWeightTotal : undefined,
         }),
       });
 
@@ -52,32 +59,37 @@ export function useCart() {
         return false;
       }
 
-      // Get current quantity/weight in cart
-      const existingItem = cart.state.items.find(item =>
+      // Get current quantity/weight in cart (sum across all lines for this product/variant)
+      const matchingLines = cart.state.items.filter(item =>
         item.product.id === product.id &&
-        (!product.variantId || item.product.variantId === product.variantId)
+        (item.product.variantId ?? null) === (product.variantId ?? null)
       );
-      const currentQuantityInCart = existingItem?.quantity || 0;
-      const currentWeightInCart = existingItem?.numericValue || 0;
+
+      const currentQuantityInCart = matchingLines.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      const currentWeightInCart = matchingLines.reduce((sum, item) => {
+        const perUnit = typeof item.numericValue === 'number' ? item.numericValue : 0;
+        const units = item.quantity || 0;
+        return sum + (perUnit * units);
+      }, 0);
 
       if (isWeightBased) {
-        // For weight-based products, check against the total weight (numericValue)
-        const requestedWeight = weightInGrams || quantity;
-        const totalRequestedWeight = (currentQuantityInCart * currentWeightInCart) + requestedWeight;
+        // For weight-based products, compare total grams in cart + grams being added
+        const requestedWeight = requestedWeightTotal || 0;
+        const totalRequestedWeight = currentWeightInCart + requestedWeight;
 
         if (result.stockManagementEnabled && totalRequestedWeight > result.availableWeight) {
-          const canAdd = result.availableWeight - (currentQuantityInCart * currentWeightInCart);
+          const canAdd = result.availableWeight - currentWeightInCart;
           if (canAdd > 0) {
             toast({
               title: "Limited stock",
-              description: `Only ${canAdd.toFixed(0)}g more can be added (${result.availableWeight.toFixed(0)}g total available, ${(currentQuantityInCart * currentWeightInCart).toFixed(0)}g already in cart)`,
+              description: `Only ${canAdd.toFixed(0)}g more can be added (${result.availableWeight.toFixed(0)}g total available, ${currentWeightInCart.toFixed(0)}g already in cart)`,
               variant: "destructive",
               duration: 4000,
             });
           } else {
             toast({
               title: "Already at maximum",
-              description: `You already have the maximum available weight (${(currentQuantityInCart * currentWeightInCart).toFixed(0)}g) in your cart`,
+              description: `You already have the maximum available weight (${currentWeightInCart.toFixed(0)}g) in your cart`,
               variant: "destructive",
               duration: 3000,
             });
@@ -113,10 +125,10 @@ export function useCart() {
       // For weight-based: quantity=1 (unit count), numericValue=weight in grams
       // For quantity-based: quantity=count, numericValue=undefined
       if (isWeightBased) {
-        cart.addToCart(product, quantity, weightInGrams);
+        cart.addToCart(product, quantity, weightInGrams, note);
         console.log(`Added to cart: quantity=${quantity}, numericValue=${weightInGrams}`);
       } else {
-        cart.addToCart(product, quantity);
+        cart.addToCart(product, quantity, undefined, note);
       }
 
       toast({
@@ -138,8 +150,8 @@ export function useCart() {
     }
   };
 
-  const removeFromCartWithToast = (productId: string, productName?: string) => {
-    cart.removeFromCart(productId);
+  const removeFromCartWithToast = (lineId: string, productName?: string) => {
+    cart.removeFromCart(lineId);
 
     toast({
       title: "Removed from cart",
@@ -148,9 +160,9 @@ export function useCart() {
     });
   };
 
-  const updateQuantityWithToast = (productId: string, quantity: number, productName?: string) => {
-    const oldQuantity = cart.state.items.find(item => item.product.id === productId)?.quantity || 0;
-    cart.updateQuantity(productId, quantity);
+  const updateQuantityWithToast = (lineId: string, quantity: number, productName?: string) => {
+    const oldQuantity = cart.state.items.find(item => item.id === lineId)?.quantity || 0;
+    cart.updateQuantity(lineId, quantity);
 
     if (quantity === 0) {
       toast({
@@ -189,13 +201,15 @@ export function useCart() {
   };
 
   const getItemQuantity = (productId: string): number => {
-    const item = cart.state.items.find(item => item.product.id === productId);
-    return item?.quantity || 0;
+    return cart.state.items
+      .filter(item => item.product.id === productId)
+      .reduce((sum, item) => sum + (item.quantity || 0), 0);
   };
 
   const getItemSubtotal = (productId: string): number => {
-    const item = cart.state.items.find(item => item.product.id === productId);
-    return item ? item.product.price * item.quantity : 0;
+    return cart.state.items
+      .filter(item => item.product.id === productId)
+      .reduce((sum, item) => sum + ((item.product.price || 0) * (item.quantity || 0)), 0);
   };
 
   const getCartSummary = () => {

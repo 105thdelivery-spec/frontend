@@ -24,6 +24,7 @@ interface OrderItem {
   selectedAttributes?: { [key: string]: string };
   variantSku?: string;
   productImage?: string;
+  note?: string;
 }
 
 interface Order {
@@ -407,6 +408,13 @@ export function OrdersClient({ userId }: OrdersClientProps) {
                   {/* Show variant SKU if available */}
                   {item.variantSku && (
                     <p className="text-xs text-muted-foreground mt-1">SKU: {item.variantSku}</p>
+                  )}
+
+                  {/* Per-item note */}
+                  {item.note && (
+                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                      Note: {item.note}
+                    </p>
                   )}
                 </div>
               </div>

@@ -11,24 +11,73 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_TO_CART'; payload: { product: Product; quantity: number; numericValue?: number } }
+  | { type: 'ADD_TO_CART'; payload: { product: Product; quantity: number; numericValue?: number; note?: string } }
   | { type: 'REMOVE_FROM_CART'; payload: string }
-  | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
+  | { type: 'UPDATE_QUANTITY'; payload: { lineId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartItem[] }
   | { type: 'SET_LOADING'; payload: boolean };
 
 interface CartContextType {
   state: CartState;
-  addToCart: (product: Product, quantity: number, numericValue?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, quantity: number, numericValue?: number, note?: string) => void;
+  removeFromCart: (lineId: string) => void;
+  updateQuantity: (lineId: string, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartItemCount: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+
+const normalizeNote = (note?: string): string | undefined => {
+  if (typeof note !== 'string') return undefined;
+  const trimmed = note.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const generateLineId = (): string => {
+  try {
+    // Modern browsers
+    if (globalThis.crypto && 'randomUUID' in globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+      return globalThis.crypto.randomUUID();
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback
+  return `line_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+};
+
+const migrateCartItems = (raw: unknown): CartItem[] => {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item: any): CartItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      if (!item.product || typeof item.product !== 'object') return null;
+
+      const id = typeof item.id === 'string' && item.id.length > 0 ? item.id : generateLineId();
+      const quantity = typeof item.quantity === 'number' ? item.quantity : Number(item.quantity) || 0;
+      const numericValue =
+        typeof item.numericValue === 'number'
+          ? item.numericValue
+          : item.numericValue !== undefined && item.numericValue !== null
+            ? Number(item.numericValue)
+            : undefined;
+
+      const note = normalizeNote(item.note);
+
+      return {
+        id,
+        product: item.product as Product,
+        quantity,
+        numericValue: Number.isFinite(numericValue as number) ? (numericValue as number) : undefined,
+        note,
+      };
+    })
+    .filter((x): x is CartItem => !!x && x.quantity > 0);
+};
 
 const calculateTotal = (items: CartItem[]): number => {
   return items.reduce((total, item) => total + (item.product.price * item.quantity), 0);
@@ -41,22 +90,40 @@ const calculateItemCount = (items: CartItem[]): number => {
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_TO_CART': {
-      const { product, quantity, numericValue } = action.payload;
-      const existingItem = state.items.find(item => 
-        item.product.id === product.id && 
-        (!product.variantId || item.product.variantId === product.variantId)
+      const { product, quantity, numericValue, note } = action.payload;
+      const normalizedNote = normalizeNote(note);
+      const variantId = product.variantId ?? null;
+      const numericKey = numericValue ?? null;
+
+      const existingItem = state.items.find(item =>
+        item.product.id === product.id &&
+        (item.product.variantId ?? null) === variantId &&
+        (item.numericValue ?? null) === numericKey &&
+        normalizeNote(item.note) === normalizedNote
       );
       
       let newItems: CartItem[];
       if (existingItem) {
-        newItems = state.items.map(item =>
-          item.product.id === product.id && 
-          (!product.variantId || item.product.variantId === product.variantId)
-            ? { ...item, quantity: item.quantity + quantity, numericValue: numericValue || item.numericValue }
-            : item
-        );
+        newItems = state.items.map(item => {
+          const isMatch =
+            item.product.id === product.id &&
+            (item.product.variantId ?? null) === variantId &&
+            (item.numericValue ?? null) === numericKey &&
+            normalizeNote(item.note) === normalizedNote;
+
+          return isMatch
+            ? {
+                ...item,
+                quantity: item.quantity + quantity,
+                numericValue: numericValue ?? item.numericValue,
+              }
+            : item;
+        });
       } else {
-        newItems = [...state.items, { product, quantity, numericValue }];
+        newItems = [
+          ...state.items,
+          { id: generateLineId(), product, quantity, numericValue, note: normalizedNote },
+        ];
       }
       
       return {
@@ -68,7 +135,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     }
     
     case 'REMOVE_FROM_CART': {
-      const newItems = state.items.filter(item => item.product.id !== action.payload);
+      const newItems = state.items.filter(item => item.id !== action.payload);
       return {
         items: newItems,
         total: calculateTotal(newItems),
@@ -78,9 +145,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     }
     
     case 'UPDATE_QUANTITY': {
-      const { productId, quantity } = action.payload;
+      const { lineId, quantity } = action.payload;
       if (quantity <= 0) {
-        const newItems = state.items.filter(item => item.product.id !== productId);
+        const newItems = state.items.filter(item => item.id !== lineId);
         return {
           items: newItems,
           total: calculateTotal(newItems),
@@ -90,7 +157,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       }
       
       const newItems = state.items.map(item =>
-        item.product.id === productId
+        item.id === lineId
           ? { ...item, quantity }
           : item
       );
@@ -151,7 +218,7 @@ export function CartProvider({ children }: CartProviderProps) {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       try {
-        const cartItems = JSON.parse(savedCart);
+        const cartItems = migrateCartItems(JSON.parse(savedCart));
         dispatch({ type: 'LOAD_CART', payload: cartItems });
       } catch (error) {
         console.error('Error loading cart from localStorage:', error);
@@ -167,16 +234,16 @@ export function CartProvider({ children }: CartProviderProps) {
     localStorage.setItem('cart', JSON.stringify(state.items));
   }, [state.items]);
 
-  const addToCart = (product: Product, quantity: number, numericValue?: number) => {
-    dispatch({ type: 'ADD_TO_CART', payload: { product, quantity, numericValue } });
+  const addToCart = (product: Product, quantity: number, numericValue?: number, note?: string) => {
+    dispatch({ type: 'ADD_TO_CART', payload: { product, quantity, numericValue, note } });
   };
 
-  const removeFromCart = (productId: string) => {
-    dispatch({ type: 'REMOVE_FROM_CART', payload: productId });
+  const removeFromCart = (lineId: string) => {
+    dispatch({ type: 'REMOVE_FROM_CART', payload: lineId });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, quantity } });
+  const updateQuantity = (lineId: string, quantity: number) => {
+    dispatch({ type: 'UPDATE_QUANTITY', payload: { lineId, quantity } });
   };
 
   const clearCart = () => {

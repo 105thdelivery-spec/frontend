@@ -391,7 +391,7 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
         </CardHeader>
         <CardContent className="space-y-3">
           {state.items.map((item) => (
-            <div key={item.product.id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
+            <div key={item.id} className="flex gap-3 p-3 bg-muted/50 rounded-lg">
               <div className="w-12 h-12 flex-shrink-0">
                 {item.product.image ? (
                   <img
@@ -427,6 +427,13 @@ export function CheckoutFormWithData({ total, loyaltySettings, customerPoints, o
                 {/* Show variant SKU if available */}
                 {item.product.variantSku && (
                   <p className="text-xs text-muted-foreground mt-1">SKU: {item.product.variantSku}</p>
+                )}
+
+                {/* Per-item note */}
+                {item.note && (
+                  <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                    Note: {item.note}
+                  </p>
                 )}
               </div>
               <div className="text-right">

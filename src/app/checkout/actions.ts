@@ -450,11 +450,15 @@ export async function processCheckout(formData: FormData) {
 
       // Prepare variation attributes for storage
       let addonData = null;
-      if (item.product?.selectedAttributes || item.addons) {
+      const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
+      const noteToSave = itemNote.length > 0 ? itemNote : null;
+
+      if (item.product?.selectedAttributes || item.addons || noteToSave) {
         addonData = {
           selectedAttributes: item.product?.selectedAttributes || {},
           variantSku: item.product?.variantSku || null,
-          addons: item.addons || []
+          addons: item.addons || [],
+          note: noteToSave
         };
       }
 

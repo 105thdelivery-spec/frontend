@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useWeightLabel } from '@/contexts/WeightLabelContext';
@@ -100,6 +101,7 @@ export default function ProductDetails() {
   const [selectedNumericValue, setSelectedNumericValue] = useState<number | null>(null);
   const [availableQuantity, setAvailableQuantity] = useState<number | null>(null);
   const [stockManagementEnabled, setStockManagementEnabled] = useState(false);
+  const [itemNote, setItemNote] = useState('');
   const { addToCartWithToast, state } = useCart();
   const { toast } = useToast();
 
@@ -278,16 +280,19 @@ export default function ProductDetails() {
       }),
     };
 
+    const normalizedNote = itemNote.trim();
+    const noteToSave = normalizedNote.length > 0 ? normalizedNote : undefined;
+
     // For weight-based products: quantity=1 (unit count), weightInGrams=effectiveWeight
     // For quantity-based products: quantity=count
     let success = false;
     if (isWeightBased) {
       console.log(`→ Calling addToCartWithToast(product, 1, ${effectiveWeight})`);
       //alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}${weightLabel}\n\nThis ${effectiveWeight}${weightLabel} should be deducted from stock!`);
-      success = await addToCartWithToast(productForCart, 1, effectiveWeight);
+      success = await addToCartWithToast(productForCart, 1, effectiveWeight, noteToSave);
     } else {
       console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
-      success = await addToCartWithToast(productForCart, quantity);
+      success = await addToCartWithToast(productForCart, quantity, undefined, noteToSave);
     }
 
     // Only redirect to cart page if product was successfully added
@@ -715,6 +720,23 @@ export default function ProductDetails() {
               </div>
 
               <Separator className="mb-4" />
+
+              {/* Per-item note */}
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Item note (optional)</span>
+                  <span className="text-xs text-muted-foreground">
+                    {itemNote.length}/500
+                  </span>
+                </div>
+                <Textarea
+                  value={itemNote}
+                  onChange={(e) => setItemNote(e.target.value)}
+                  placeholder="Add a note for this item..."
+                  maxLength={500}
+                  className="min-h-[90px]"
+                />
+              </div>
 
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">Total</span>

@@ -113,6 +113,7 @@ export async function GET(
             // Parse stored variation data from addons JSON field
             let selectedAttributes = {};
             let variantSku = null;
+            let note: string | undefined = undefined;
             
             console.log('Processing item:', item.id, 'productName:', item.productName);
             console.log('Raw addons data:', item.addons);
@@ -133,6 +134,10 @@ export async function GET(
                     variantSku = addonData.variantSku;
                     console.log('Found variantSku:', variantSku);
                   }
+                  if (typeof (addonData as any).note === 'string' && (addonData as any).note.trim().length > 0) {
+                    note = (addonData as any).note.trim();
+                    console.log('Found note:', note);
+                  }
                 }
               } catch (error) {
                 console.error('Error parsing variation data for item:', item.id, error);
@@ -150,7 +155,8 @@ export async function GET(
               totalPrice: parseFloat(item.totalPrice.toString()),
               selectedAttributes: Object.keys(selectedAttributes).length > 0 ? selectedAttributes : undefined,
               variantSku: variantSku || item.sku || undefined,
-              productImage: item.productImage || undefined
+              productImage: item.productImage || undefined,
+              note: note || undefined
             };
             
             console.log('Final item object:', finalItem);

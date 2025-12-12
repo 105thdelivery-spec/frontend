@@ -60,16 +60,16 @@ export default function CartPage() {
     return null;
   }
 
-  const updateItemQuantity = (productId: string, newQuantity: number) => {
+  const updateItemQuantity = (lineId: string, newQuantity: number) => {
     if (newQuantity === 0) {
-      removeFromCart(productId);
+      removeFromCart(lineId);
     } else {
-      updateQuantity(productId, newQuantity);
+      updateQuantity(lineId, newQuantity);
     }
   };
 
-  const removeItem = (productId: string) => {
-    removeFromCart(productId);
+  const removeItem = (lineId: string) => {
+    removeFromCart(lineId);
   };
 
   const subtotal = state.total;
@@ -128,7 +128,7 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="space-y-4">
           {state.items.map((item) => (
-            <Card key={item.product.id} className="overflow-hidden">
+            <Card key={item.id} className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   <div className="w-20 h-20 flex-shrink-0">
@@ -154,6 +154,11 @@ export default function CartPage() {
                       <div>
                         <h3 className="font-semibold">{item.product.name}</h3>
                         <p className="text-sm text-muted-foreground">{item.product.category}</p>
+                        {item.note && (
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                            Note: {item.note}
+                          </p>
+                        )}
 
                         {/* Show selected variant information */}
                         {item.product.selectedAttributes && Object.keys(item.product.selectedAttributes).length > 0 && (
@@ -174,7 +179,7 @@ export default function CartPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeItem(item.product.id)}
+                        onClick={() => removeItem(item.id)}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -187,7 +192,7 @@ export default function CartPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -196,7 +201,7 @@ export default function CartPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
