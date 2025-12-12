@@ -8,6 +8,7 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/hooks/useCart';
@@ -29,7 +30,8 @@ import {
   Facebook,
   Twitter,
   ShoppingCart,
-  Package
+  Package,
+  Play
 } from 'lucide-react';
 
 interface TagItem {
@@ -457,13 +459,28 @@ export default function ProductDetails() {
         {/* Product Video */}
         {product.videoUrl && (
           <div className="mb-6">
-            <video
-              src={product.videoUrl}
-              controls
-              preload="metadata"
-              playsInline
-              className="w-full rounded-lg bg-black"
-            />
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="secondary" className="gap-2">
+                  <Play className="h-4 w-4" />
+                  Play Video
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-[95vw] max-w-4xl">
+                <DialogHeader>
+                  <DialogTitle>{product.name} — Video</DialogTitle>
+                </DialogHeader>
+                <div className="aspect-video w-full overflow-hidden rounded-md bg-black">
+                  <video
+                    src={product.videoUrl}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    className="h-full w-full"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
 
@@ -477,7 +494,7 @@ export default function ProductDetails() {
                 {!product.inStock && <Badge variant="destructive">Out of Stock</Badge>}
               </div>
               <h1 className="text-2xl font-bold mb-2">{product.name}</h1>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4 hidden">
+              <div className="hidden text-sm text-muted-foreground mb-4">
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-primary text-primary" />
                   <span>4.8 (24 reviews)</span>
