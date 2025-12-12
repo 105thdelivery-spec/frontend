@@ -18,8 +18,6 @@ import { VariationSelectorV2 } from '@/components/products/VariationSelectorV2';
 import { PriceMatrixEntry } from '@/hooks/useProductVariants';
 import { Product } from '@/types';
 import {
-  Plus,
-  Minus,
   Share2,
   Star,
   Leaf,
@@ -96,7 +94,6 @@ export default function ProductDetails() {
   const { weightLabel } = useWeightLabel();
   const [product, setProduct] = useState<ProductDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [selectedVariant, setSelectedVariant] = useState<PriceMatrixEntry | null>(null);
@@ -230,7 +227,7 @@ export default function ProductDetails() {
     console.log('product.stockManagementType:', product.stockManagementType);
     console.log('selectedVariant:', selectedVariant);
     console.log('selectedNumericValue:', selectedNumericValue);
-    console.log('quantity:', quantity);
+    console.log('quantity:', 1);
 
     // Use variant price if available, otherwise use base product price
     const effectivePrice = selectedVariant?.price || product.price;
@@ -242,7 +239,7 @@ export default function ProductDetails() {
     const isWeightBased = product.stockManagementType === 'weight';
 
     // For weight-based variable products, use the numeric value from selected variation
-    let effectiveWeight = quantity; // Default to quantity input
+    let effectiveWeight = 1; // Default to 1 unit if no numericValue is available
 
     if (isWeightBased && selectedVariant && selectedNumericValue) {
       effectiveWeight = selectedNumericValue;
@@ -251,7 +248,7 @@ export default function ProductDetails() {
       console.warn('⚠️ Weight-based product but no numericValue!', {
         hasSelectedVariant: !!selectedVariant,
         selectedNumericValue,
-        willUseQuantity: quantity
+        willUseQuantity: 1
       });
     }
 
@@ -294,8 +291,8 @@ export default function ProductDetails() {
       //alert(`🛒 ADDING TO CART:\n\nProduct: ${product.name}\nQuantity: 1\nnumericValue: ${effectiveWeight}${weightLabel}\n\nThis ${effectiveWeight}${weightLabel} should be deducted from stock!`);
       success = await addToCartWithToast(productForCart, 1, effectiveWeight, noteToSave);
     } else {
-      console.log(`→ Calling addToCartWithToast(product, ${quantity})`);
-      success = await addToCartWithToast(productForCart, quantity, undefined, noteToSave);
+      console.log(`→ Calling addToCartWithToast(product, 1)`);
+      success = await addToCartWithToast(productForCart, 1, undefined, noteToSave);
     }
 
     // Only redirect to cart page if product was successfully added
@@ -716,41 +713,7 @@ export default function ProductDetails() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between mb-4">
-                <span className="font-medium">
-                  {product.stockManagementType === 'weight' ? `Quantity (${weightLabel})` : 'Quantity'}
-                </span>
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center font-medium">{quantity}</span>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => {
-                      const maxQty = stockManagementEnabled && availableQuantity !== null
-                        ? availableQuantity
-                        : 999;
-                      setQuantity(Math.min(maxQty, quantity + 1));
-                    }}
-                    disabled={
-                      stockManagementEnabled &&
-                      availableQuantity !== null &&
-                      quantity >= availableQuantity
-                    }
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <Separator className="mb-4" />
+              {/* Quantity UI hidden for now */}
 
               {/* Per-item note */}
               <div className="mb-4 space-y-2">
@@ -772,7 +735,7 @@ export default function ProductDetails() {
               <div className="flex items-center justify-between mb-4">
                 <span className="font-medium">Total</span>
                 <span className="text-xl font-bold text-primary">
-                  ${((selectedVariant?.price || product.price) * quantity).toFixed(2)}
+                  ${(selectedVariant?.price || product.price).toFixed(2)}
                 </span>
               </div>
 

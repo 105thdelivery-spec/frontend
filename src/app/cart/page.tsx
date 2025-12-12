@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Trash2, Plus, Minus, Package } from 'lucide-react';
+import { Trash2, Package } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { DynamicTitle } from '@/components/DynamicTitle';
 
 export default function CartPage() {
   const { data: session, status } = useSession();
-  const { state, removeFromCart, updateQuantity } = useCart();
+  const { state, removeFromCart } = useCart();
   const router = useRouter();
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -59,14 +59,6 @@ export default function CartPage() {
   if (!session) {
     return null;
   }
-
-  const updateItemQuantity = (lineId: string, newQuantity: number) => {
-    if (newQuantity === 0) {
-      removeFromCart(lineId);
-    } else {
-      updateQuantity(lineId, newQuantity);
-    }
-  };
 
   const removeItem = (lineId: string) => {
     removeFromCart(lineId);
@@ -187,24 +179,9 @@ export default function CartPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <div className="flex items-center border rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="px-3 py-1 text-sm font-medium">{item.quantity}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                      {/* Quantity controls hidden for now */}
+                      <div className="text-sm text-muted-foreground">
+                        Qty: {item.quantity}
                       </div>
 
                       <div className="text-right">
