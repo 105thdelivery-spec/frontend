@@ -29,6 +29,7 @@ export async function GET(
           price: products.price,
           comparePrice: products.comparePrice,
           images: products.images,
+          videoUrl: products.videoUrl,
           thc: products.thc,
           cbd: products.cbd,
           isActive: products.isActive,
@@ -178,6 +179,7 @@ export async function GET(
       comparePrice: item.product.comparePrice ? parseFloat(item.product.comparePrice.toString()) : null,
       image: images[0] || null, // First image or null for placeholder
       images: images,
+      videoUrl: item.product.videoUrl || null,
       description: item.product.description || item.product.shortDescription || '',
       shortDescription: item.product.shortDescription || '',
       thc: parseFloat(item.product.thc?.toString() || '0'),

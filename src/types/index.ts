@@ -4,6 +4,7 @@ export interface Product {
   category: string;
   price: number;
   image: string;
+  videoUrl?: string | null;
   description: string;
   thc: number;
   cbd: number;

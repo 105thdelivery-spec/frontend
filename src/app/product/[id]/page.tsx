@@ -49,6 +49,7 @@ interface ProductDetails {
   comparePrice?: number;
   image: string;
   images: string[];
+  videoUrl?: string | null;
   description: string;
   shortDescription: string;
   thc: number;
@@ -452,6 +453,19 @@ export default function ProductDetails() {
             </div>
           )}
         </div>
+
+        {/* Product Video */}
+        {product.videoUrl && (
+          <div className="mb-6">
+            <video
+              src={product.videoUrl}
+              controls
+              preload="metadata"
+              playsInline
+              className="w-full rounded-lg bg-black"
+            />
+          </div>
+        )}
 
         {/* Product Info */}
         <div className="space-y-6">
