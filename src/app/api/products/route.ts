@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, categories, productInventory, productVariants, settings } from '@/lib/schema';
+import { products, categories, productInventory, productVariants, settings, productCategories } from '@/lib/schema';
 import { eq, and, desc, sql, isNull } from 'drizzle-orm';
 import { normalizeProductImages, normalizeProductTags } from '@/utils/jsonUtils';
 
@@ -34,7 +34,14 @@ export async function GET(req: NextRequest) {
 
     // Filter by category if provided
     if (categoryId) {
-      whereConditions.push(eq(products.categoryId, categoryId));
+      whereConditions.push(
+        sql`EXISTS (
+          SELECT 1
+          FROM ${productCategories}
+          WHERE ${productCategories.productId} = ${products.id}
+            AND ${productCategories.categoryId} = ${categoryId}
+        )`
+      );
     } else if (categorySlug && categorySlug !== 'all') {
       // First get the category ID from slug
       const category = await db
@@ -47,7 +54,14 @@ export async function GET(req: NextRequest) {
         .limit(1);
 
       if (category.length > 0) {
-        whereConditions.push(eq(products.categoryId, category[0].id));
+        whereConditions.push(
+          sql`EXISTS (
+            SELECT 1
+            FROM ${productCategories}
+            WHERE ${productCategories.productId} = ${products.id}
+              AND ${productCategories.categoryId} = ${category[0].id}
+          )`
+        );
       }
     }
 

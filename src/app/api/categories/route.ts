@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { categories, products } from '@/lib/schema';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { categories, products, productCategories } from '@/lib/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,15 +19,16 @@ export async function GET(req: NextRequest) {
           isFeatured: categories.isFeatured,
           sortOrder: categories.sortOrder,
         },
-        productCount: count(products.id),
+        productCount: sql<number>`COUNT(DISTINCT ${productCategories.productId})`,
       })
       .from(categories)
       .leftJoin(
-        products, 
-        and(
-          eq(products.categoryId, categories.id),
-          eq(products.isActive, true)
-        )
+        productCategories,
+        eq(productCategories.categoryId, categories.id)
+      )
+      .leftJoin(
+        products,
+        and(eq(products.id, productCategories.productId), eq(products.isActive, true))
       )
       .where(eq(categories.isActive, true))
       .groupBy(categories.id)

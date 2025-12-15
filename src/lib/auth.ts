@@ -8,6 +8,7 @@ import { user as userTable, account as accountTable } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { sendWelcomeEmail } from "@/lib/email";
 import bcrypt from "bcrypt";
+import { encode, decode } from "next-auth/jwt";
 
 // Extend the built-in session types
 declare module "next-auth" {
@@ -30,6 +31,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
+    rememberMe?: boolean;
   }
 }
 
@@ -52,6 +54,7 @@ export const authOptions: AuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
+        const rememberMe = (credentials as any).rememberMe === 'true';
         
         // Detect if input is email or phone number
         const isEmail = credentials.email.includes('@');
@@ -92,6 +95,7 @@ export const authOptions: AuthOptions = {
           id: foundUser.id,
           email: foundUser.email || `${foundUser.phone}@phone.placeholder`, // Provide email for session
           name: foundUser.name,
+          rememberMe,
         };
       },
     }),
@@ -101,6 +105,22 @@ export const authOptions: AuthOptions = {
   },
   session: {
     strategy: "jwt",
+    // Use the maximum window; actual login duration is enforced via JWT expiry (see jwt.encode below)
+    maxAge: 90 * 24 * 60 * 60, // 90 days
+  },
+  jwt: {
+    async encode(params) {
+      const rememberMe = Boolean((params.token as any)?.rememberMe);
+      const maxAge = rememberMe
+        ? 90 * 24 * 60 * 60 // 90 days
+        : 24 * 60 * 60; // 1 day
+
+      return encode({ ...params, maxAge });
+    },
+    async decode(params) {
+      // Keep decode behavior consistent with NextAuth defaults
+      return decode(params);
+    },
   },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -149,6 +169,7 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.rememberMe = Boolean((user as any).rememberMe);
       }
       return token;
     },

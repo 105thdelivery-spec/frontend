@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Mail, User, FileText, Lock, Eye, EyeOff } from 'lucide-react';
 import { DynamicTitle } from '@/components/DynamicTitle';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -28,6 +29,7 @@ function RegisterContent() {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('register');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +64,24 @@ function RegisterContent() {
       setSuccess('🎉 You\'re joining via a special invitation link! Your account will be automatically approved.');
     }
   }, [searchParams]);
+
+  // Remember-me hydration (login convenience + persistence preference)
+  useEffect(() => {
+    try {
+      const storedRemember = localStorage.getItem('auth_remember_me') === 'true';
+      const storedIdentifier = localStorage.getItem('auth_identifier') || '';
+
+      setRememberMe(storedRemember);
+
+      // Only prefill identifier if we have one and the user hasn't typed yet
+      if (storedIdentifier && !email) {
+        setEmail(storedIdentifier);
+      }
+    } catch {
+      // ignore storage access issues
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,12 +161,25 @@ function RegisterContent() {
       const result = await signIn('credentials', {
         email,
         password,
+        rememberMe: rememberMe ? 'true' : 'false',
         redirect: false,
       });
 
       if (result?.error) {
         setError('Invalid credentials or account not approved');
       } else if (result?.ok) {
+        // Persist remember-me preference + identifier (never store password)
+        try {
+          if (rememberMe) {
+            localStorage.setItem('auth_remember_me', 'true');
+            localStorage.setItem('auth_identifier', email);
+          } else {
+            localStorage.removeItem('auth_remember_me');
+            localStorage.removeItem('auth_identifier');
+          }
+        } catch {
+          // ignore
+        }
         router.push('/dashboard');
       }
     } catch (error) {
@@ -277,6 +310,19 @@ function RegisterContent() {
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="remember-me"
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
+                      />
+                      <Label htmlFor="remember-me" className="text-sm cursor-pointer">
+                        Remember me
+                      </Label>
                     </div>
                   </div>
 

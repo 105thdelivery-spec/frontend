@@ -454,6 +454,13 @@ export const couponExcludedCategories = mysqlTable("coupon_excluded_categories",
   createdAt: datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Product Categories (many-to-many)
+export const productCategories = mysqlTable("product_categories", {
+  productId: varchar("product_id", { length: 255 }).notNull(),
+  categoryId: varchar("category_id", { length: 255 }).notNull(),
+  createdAt: datetime("created_at", { mode: 'string'}).default('current_timestamp()'),
+});
+
 export const couponRedemptions = mysqlTable("coupon_redemptions", {
   id: varchar("id", { length: 255 }).primaryKey(),
   couponId: varchar("coupon_id", { length: 255 }).notNull(),

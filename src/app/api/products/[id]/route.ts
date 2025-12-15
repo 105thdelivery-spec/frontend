@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { products, categories, productInventory, productTags, tags, tagGroups, productVariants } from '@/lib/schema';
+import { products, categories, productInventory, productTags, tags, tagGroups, productVariants, productCategories } from '@/lib/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { normalizeProductImages, normalizeProductTags } from '@/utils/jsonUtils';
 
@@ -75,6 +75,18 @@ export async function GET(
     }
 
     const item = productWithDetails[0];
+
+    // Determine a display category based on product_categories membership (sorted by categories.sortOrder)
+    const categoryFromJoin = await db
+      .select({
+        name: categories.name,
+        slug: categories.slug,
+      })
+      .from(productCategories)
+      .innerJoin(categories, eq(productCategories.categoryId, categories.id))
+      .where(and(eq(productCategories.productId, productId), eq(categories.isActive, true)))
+      .orderBy(categories.sortOrder, categories.name)
+      .limit(1);
 
     // Fetch product tags with their groups
     const productTagsWithGroups = await db
@@ -173,8 +185,8 @@ export async function GET(
     const transformedProduct = {
       id: item.product.id,
       name: item.product.name,
-      category: item.category?.name || '',
-      categorySlug: item.category?.slug || '',
+      category: categoryFromJoin[0]?.name || item.category?.name || '',
+      categorySlug: categoryFromJoin[0]?.slug || item.category?.slug || '',
       price: parseFloat(item.product.price?.toString() || '0'),
       comparePrice: item.product.comparePrice ? parseFloat(item.product.comparePrice.toString()) : null,
       image: images[0] || null, // First image or null for placeholder

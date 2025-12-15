@@ -718,7 +718,7 @@ export default function ProductDetails() {
               {/* Per-item note */}
               <div className="mb-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Item note (optional)</span>
+                  <span className="font-medium">Special Instructions</span>
                   <span className="text-xs text-muted-foreground">
                     {itemNote.length}/500
                   </span>
